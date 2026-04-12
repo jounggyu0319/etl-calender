@@ -1,0 +1,11 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+data.db
+credentials.json
+token.pickle
+seen_assignments.json
+.DS_Store
+debug_html.txt

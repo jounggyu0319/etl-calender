@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>etl-calendar</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        width: 320px;
+        padding: 12px;
+        margin: 0;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        margin-top: 8px;
+      }
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 4px;
+      }
+      button {
+        margin-top: 12px;
+        width: 100%;
+        padding: 8px;
+      }
+      #log {
+        font-size: 11px;
+        margin-top: 10px;
+        white-space: pre-wrap;
+        word-break: break-all;
+        color: #333;
+      }
+    </style>
+  </head>
+  <body>
+    <strong>myetl → 서버 동기화</strong>
+    <label>API 베이스 (예: http://127.0.0.1:8000)</label>
+    <input id="api" type="text" placeholder="http://127.0.0.1:8000" />
+    <label>JWT (웹 앱 로그인 후 개발자도구·네트워크에서 복사)</label>
+    <input id="jwt" type="password" autocomplete="off" />
+    <button id="save">설정 저장</button>
+    <button id="run">이 탭에서 수집 후 동기화</button>
+    <div id="log"></div>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,162 @@
+아래 4가지를 수정해줘.
+
+---
+
+수정 1: app/services/etl_session_holder.py 파일 전체를 아래 코드로 교체해줘.
+
+"""사용자별 Selenium WebDriver 보관 — 서버 reload 후에도 기존 chromedriver 세션 재연결."""
+from __future__ import annotations
+import json, os, threading
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from selenium.webdriver.remote.webdriver import WebDriver
+
+_lock = threading.Lock()
+_drivers: dict[int, WebDriver] = {}
+
+_SESSION_FILE = Path(os.environ.get("TMPDIR", "/tmp")) / "etlcal_sessions.json"
+
+
+def _load_file() -> dict:
+    try:
+        return json.loads(_SESSION_FILE.read_text())
+    except Exception:
+        return {}
+
+
+def _save_file(data: dict) -> None:
+    try:
+        _SESSION_FILE.write_text(json.dumps(data))
+    except Exception:
+        pass
+
+
+def _try_reconnect(user_id: int) -> "WebDriver | None":
+    data = _load_file()
+    info = data.get(str(user_id))
+    if not info:
+        return None
+    try:
+        from selenium.webdriver.chrome.options import Options as ChromeOptions
+        from selenium.webdriver.remote.webdriver import WebDriver as RemoteDriver
+        opts = ChromeOptions()
+        opts.add_experimental_option("detach", True)
+        driver = RemoteDriver(command_executor=info["executor_url"], options=opts)
+        driver.session_id = info["session_id"]
+        _ = driver.current_url
+        return driver
+    except Exception:
+        data.pop(str(user_id), None)
+        _save_file(data)
+        return None
+
+
+def store(user_id: int, driver: "WebDriver") -> None:
+    with _lock:
+        old = _drivers.pop(user_id, None)
+        if old is not None:
+            try:
+                old.quit()
+            except Exception:
+                pass
+        _drivers[user_id] = driver
+        try:
+            executor_url = driver.command_executor._url
+        except Exception:
+            try:
+                executor_url = driver.command_executor._client._base_url
+            except Exception:
+                executor_url = None
+        if executor_url:
+            data = _load_file()
+            data[str(user_id)] = {"session_id": driver.session_id, "executor_url": executor_url}
+            _save_file(data)
+
+
+def peek(user_id: int) -> "WebDriver | None":
+    with _lock:
+        driver = _drivers.get(user_id)
+        if driver is not None:
+            return driver
+        driver = _try_reconnect(user_id)
+        if driver is not None:
+            _drivers[user_id] = driver
+        return driver
+
+
+def remove(user_id: int, *, quit_driver: bool = True) -> None:
+    with _lock:
+        driver = _drivers.pop(user_id, None)
+        if driver is not None and quit_driver:
+            try:
+                driver.quit()
+            except Exception:
+                pass
+        data = _load_file()
+        data.pop(str(user_id), None)
+        _save_file(data)
+
+---
+
+수정 2: etl_scraper.py — get_driver() 함수 수정
+
+파일 상단에 아래 두 줄 추가:
+    import pathlib
+    CHROME_PROFILE_DIR = str(pathlib.Path.home() / ".etlcal_chrome_profile")
+
+get_driver() 함수에서 headless=False일 때 Chrome/Edge/Firefox 모두 고정 프로필 디렉토리를 사용하도록 수정.
+- Chrome headless=False 분기: options.add_argument(f"--user-data-dir={CHROME_PROFILE_DIR}") 추가, options.add_experimental_option("detach", True) 추가
+- Edge headless=False 분기: 동일하게 적용
+- Firefox headless=False 분기: opts.add_argument("-profile") 및 opts.add_argument(CHROME_PROFILE_DIR + "_ff") 추가
+headless=True일 때는 기존 동작 유지.
+
+---
+
+수정 3: etl_scraper.py — get_courses() 함수 수정 (Moodle 4.x AJAX 대기)
+
+myetl.snu.ac.kr은 Moodle 4.x로 강의 카드가 JavaScript로 렌더링되므로
+body 태그 대기만으로는 강의 링크가 아직 DOM에 없어서 항상 0개가 반환된다.
+
+각 page_url 루프 안에서 기존 wait.until(EC.presence_of_element_located((By.TAG_NAME, "body"))) 바로 다음에 아래 코드를 추가:
+
+    try:
+        WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR,
+                "a[href*='course/view.php'], [data-region='myoverview'], "
+                ".dashboard-card, .coursebox, .coursename"
+            ))
+        )
+    except Exception:
+        pass
+
+COURSE_LINK_SELECTORS 리스트를 아래로 교체:
+
+    COURSE_LINK_SELECTORS = [
+        ".dashboard-card a[href*='course/view.php']",
+        "[data-region='myoverview'] a[href*='course/view.php']",
+        ".card-deck a[href*='course/view.php']",
+        ".coursename a",
+        "a.aalink.fullname",
+        "#page-content a.aalink.fullname",
+        ".course-listing .listing-course a",
+        "div.courses a[href*='course/view.php']",
+        "a[href*='course/view.php'][href*='id=']",
+    ]
+
+---
+
+수정 4: etl_scraper.py — _collect_assignments_loop() 함수에 디버그 로그 추가
+
+파일 상단에 아래 두 줄 추가 (이미 있으면 생략):
+    import logging
+    logger = logging.getLogger(__name__)
+
+_collect_assignments_loop() 함수 맨 앞에 아래 코드 추가:
+
+    logger.info("[ETL] collect 시작 — URL: %s", driver.current_url)
+    courses = get_courses(driver)
+    logger.info("[ETL] 강의 수: %d", len(courses))
+    if len(courses) == 0:
+        logger.warning("[ETL] 강의 0개 — URL: %s / 제목: %s", driver.current_url, driver.title)

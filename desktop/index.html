@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-src https://myetl.snu.ac.kr https://*.snu.ac.kr" />
+    <title>etl-calendar 데스크톱</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+      #bar {
+        padding: 10px 12px;
+        border-bottom: 1px solid #ddd;
+        background: #fafafa;
+      }
+      #bar label {
+        display: block;
+        font-size: 12px;
+        margin-top: 6px;
+      }
+      #bar input {
+        width: min(520px, 95vw);
+        box-sizing: border-box;
+      }
+      #bar button {
+        margin-top: 8px;
+        margin-right: 8px;
+      }
+      #hint {
+        font-size: 12px;
+        color: #555;
+        margin-top: 6px;
+      }
+      webview {
+        flex: 1;
+        width: 100%;
+        border: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="bar">
+      <strong>myetl (세션 유지: persist:etlcal)</strong>
+      <label>API 베이스</label>
+      <input id="api" type="text" placeholder="http://127.0.0.1:8000" />
+      <label>JWT</label>
+      <input id="jwt" type="password" autocomplete="off" />
+      <button type="button" id="sync">수집 후 Google 동기화</button>
+      <div id="hint">
+        아래 WebView에서 MFA까지 한 번 로그인한 뒤, 위 버튼으로 서버에 전송합니다. (서버 Selenium 불필요)
+      </div>
+    </div>
+    <webview
+      id="wv"
+      src="https://myetl.snu.ac.kr/"
+      partition="persist:etlcal"
+      allowpopups
+    ></webview>
+    <script src="renderer.js"></script>
+  </body>
+</html>

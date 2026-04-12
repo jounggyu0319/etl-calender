@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "etl-calendar myetl 수집",
+  "version": "0.1.0",
+  "description": "로그인된 myetl 탭에서 과제·퀴즈를 수집해 etl-calendar로 보냅니다.",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": [
+    "https://myetl.snu.ac.kr/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "etl-calendar"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://myetl.snu.ac.kr/*"],
+      "js": ["lib/myetl-collect.js", "content-bridge.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

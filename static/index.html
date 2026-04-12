@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#171a21" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="eTL 과제·퀴즈·일정을 Google 캘린더에 자동 등록합니다." />
+  <link rel="manifest" href="/static/manifest.json" />
+  <title>eTL 과제·일정 자동 캘린더</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f1115;
+      --panel: #171a21;
+      --text: #e8eaef;
+      --muted: #9aa3b2;
+      --accent: #6c8cff;
+      --border: #2a3140;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: radial-gradient(1200px 600px at 20% -10%, #1a2240 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    main { max-width: 720px; margin: 0 auto; padding: 28px 16px 72px; }
+    h1 { font-size: 1.55rem; font-weight: 650; letter-spacing: -0.02em; margin: 0 0 10px; line-height: 1.25; }
+    p.lead { margin: 0 0 22px; color: var(--muted); line-height: 1.6; font-size: 0.98rem; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 16px 16px;
+      margin-bottom: 14px;
+    }
+    label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 6px; }
+    input {
+      width: 100%;
+      padding: 12px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0c0f14;
+      color: var(--text);
+      margin-bottom: 12px;
+      font-size: 16px;
+    }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    button {
+      cursor: pointer;
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      background: var(--accent);
+      color: #0b1020;
+      min-height: 44px;
+    }
+    button.secondary { background: #2a3140; color: var(--text); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .banner {
+      font-size: 0.9rem;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      margin-bottom: 12px;
+      display: none;
+    }
+    .banner.show { display: block; }
+    .banner.err { border-color: #5c2a2a; color: #fecaca; background: #1f1010; }
+    .banner.ok { border-color: #1f4d2f; color: #bbf7d0; background: #0f1a12; }
+    .kv { display: grid; grid-template-columns: minmax(100px, 130px) 1fr; gap: 8px 10px; font-size: 0.9rem; }
+    .kv div:nth-child(odd) { color: var(--muted); }
+    footer { margin-top: 24px; font-size: 0.78rem; color: var(--muted); line-height: 1.55; }
+    code { font-size: 0.85em; color: #cbd5e1; }
+    .hint { font-size: 0.82rem; color: var(--muted); line-height: 1.45; margin-top: 8px; }
+    h2 { margin: 0 0 12px; font-size: 1.05rem; }
+    h3 { margin: 16px 0 8px; font-size: 0.92rem; color: var(--muted); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>📚 eTL 과제·일정 자동 캘린더 등록</h1>
+    <p class="lead">
+      eTL에 올라온 과제, 퀴즈, 시험 공지를 <strong>Google 캘린더</strong>에 자동으로 추가해 드려요.
+      로그인 한 번으로 매일 자동 동기화됩니다.
+    </p>
+
+    <div id="banner" class="banner"></div>
+
+    <section id="auth-card" class="card">
+      <h2>가입 · 로그인</h2>
+      <label for="email">이메일</label>
+      <input id="email" type="email" autocomplete="username" inputmode="email" placeholder="이메일" />
+      <label for="password">비밀번호 (8자 이상)</label>
+      <input id="password" type="password" autocomplete="current-password" placeholder="비밀번호" />
+      <div class="row">
+        <button type="button" id="btn-login">로그인</button>
+        <button type="button" id="btn-register" class="secondary">가입</button>
+        <button type="button" id="btn-logout" class="secondary">로그아웃</button>
+      </div>
+    </section>
+
+    <section id="dash" class="card" style="display:none;">
+      <h2>설정 순서</h2>
+      <div id="me-kv" class="kv" style="margin-bottom:14px;"></div>
+
+      <h3>1단계 — Google 캘린더 연결</h3>
+      <div class="row">
+        <button type="button" id="btn-google" class="secondary">Google 연결</button>
+      </div>
+
+      <h3>2단계 — eTL 연결 (구독 URL · 계정)</h3>
+      <p class="hint" style="margin-top:0;">캘린더 구독만 쓰면 간편 동기화만으로도 되고, 과제·퀴즈까지 하려면 아래에 eTL 아이디를 저장한 뒤 로그인 버튼을 쓰세요.</p>
+      <label for="moodle-feed-url">캘린더 구독 링크</label>
+      <textarea id="moodle-feed-url" rows="2" spellcheck="false" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0c0f14;color:var(--text);font-size:14px;resize:vertical;" placeholder="https://myetl.snu.ac.kr/calendar/export.php?…"></textarea>
+      <p class="hint" style="margin-top:6px;">
+        <a href="https://myetl.snu.ac.kr/calendar" target="_blank" rel="noopener noreferrer">myetl 캘린더</a> → «URL 주소 가져오기»로 복사한 주소를 붙여 넣고 저장합니다. 비우고 저장하면 삭제됩니다.
+      </p>
+      <div class="row">
+        <button type="button" id="btn-save-moodle-feed">저장</button>
+      </div>
+
+      <p class="hint" style="margin-top:14px; margin-bottom:4px;">eTL 아이디·비밀번호 (선택)</p>
+      <label for="etl-user">eTL 아이디</label>
+      <input id="etl-user" autocomplete="username" inputmode="text" placeholder="학번 또는 아이디" />
+      <label for="etl-pass">eTL 비밀번호</label>
+      <input id="etl-pass" type="password" autocomplete="current-password" />
+      <div class="row">
+        <button type="button" id="btn-save-etl" class="secondary">저장</button>
+      </div>
+      <p class="hint" style="margin-top:8px;">
+        과제·퀴즈까지 자동으로 가져올 때만 필요합니다.         통합인증(MFA)을 줄이려면 Chrome을 <code>--remote-debugging-port=9222</code> 로 먼저 실행해 로그인한 뒤,
+        <code>ETL_HEADLESS=false</code>·Chrome일 때 서버가 <code>127.0.0.1:9222</code> 에 붙습니다.
+        그 외에는 동기화 시 새 창이 뜰 수 있고, 창이 보이는 설정에서는 끝난 뒤에도 자동으로 닫지 않을 수 있습니다.
+      </p>
+
+      <h3>3단계 — 동기화 시작</h3>
+      <div id="sync-row-one" style="margin-bottom:12px;">
+        <div class="row">
+          <button type="button" id="btn-sync">📅 캘린더 간편 동기화</button>
+        </div>
+        <p class="hint" style="margin-top:6px;">eTL 캘린더에 등록된 일정만 가져옵니다. 빠르고 간단해요.</p>
+      </div>
+      <div id="sync-row-etl" style="display:none;">
+        <div style="margin-bottom:12px;">
+          <div class="row">
+            <button type="button" id="btn-etl-prepare" class="secondary">🔐 eTL 로그인</button>
+          </div>
+          <p class="hint" style="margin-top:6px;">과제·퀴즈·공지까지 전부 가져오려면 먼저 로그인하세요.</p>
+        </div>
+        <div style="margin-bottom:4px;">
+          <div class="row">
+            <button type="button" id="btn-etl-continue">🔄 전체 동기화 시작</button>
+          </div>
+          <p class="hint" style="margin-top:6px;">과제, 퀴즈, 공지사항까지 전부 캘린더에 추가합니다.</p>
+        </div>
+      </div>
+      <p class="hint" id="sync-hint">
+        구독 URL만 있으면 위 첫 버튼만으로도 됩니다. eTL 계정을 저장했다면 「🔐 eTL 로그인」으로 브라우저를 연 뒤 로그인·MFA를 마치고 「🔄 전체 동기화 시작」을 눌러 주세요.
+      </p>
+      <p id="sync-out" class="hint" style="margin-top:10px; white-space:pre-wrap;"></p>
+
+      <h3>확장·데스크톱</h3>
+      <p class="hint" style="margin-top:0;">
+        이미 myetl에 로그인한 브라우저에서만 쓰는 방식입니다. 저장소의 <code>extension</code>·<code>desktop</code> 폴더를 참고하세요.
+      </p>
+
+      <h3>플랜</h3>
+      <div class="row">
+        <button type="button" id="btn-billing" class="secondary">플랜 보기</button>
+      </div>
+      <pre id="billing-out" style="margin-top:8px;font-size:0.8rem;color:#cbd5e1;white-space:pre-wrap;"></pre>
+    </section>
+
+    <footer>
+      <p style="margin:0;">myetl·Google은 각 서비스 약관을 따릅니다. 이 페이지는 일정을 옮기는 보조 도구입니다.</p>
+    </footer>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const banner = $("banner");
+    const tokenKey = "etlcal_token";
+
+    function showBanner(kind, text) {
+      banner.className = "banner show " + (kind === "ok" ? "ok" : "err");
+      banner.textContent = text;
+    }
+    function hideBanner() {
+      banner.className = "banner";
+      banner.textContent = "";
+    }
+
+    function token() {
+      return localStorage.getItem(tokenKey) || "";
+    }
+    function authHeaders() {
+      const t = token();
+      return t ? { Authorization: "Bearer " + t } : {};
+    }
+
+    async function api(path, opts = {}) {
+      const headers = { ...(opts.headers || {}), ...authHeaders() };
+      const res = await fetch(path, { ...opts, headers });
+      const text = await res.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch { data = { detail: text }; }
+      if (!res.ok) {
+        const msg = (data && (data.detail || data.message)) || res.statusText;
+        throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+      }
+      return data;
+    }
+
+    async function refreshMe() {
+      hideBanner();
+      if (!token()) {
+        $("dash").style.display = "none";
+        return;
+      }
+      try {
+        const me = await api("/api/me/");
+        $("dash").style.display = "block";
+        $("me-kv").innerHTML = `
+          <div>이메일</div><div>${me.email}</div>
+          <div>플랜</div><div>${me.plan}</div>
+          <div>Google</div><div>${me.has_google ? "연결됨" : "아직"}</div>
+          <div>구독 URL</div><div>${me.has_moodle_calendar_feed ? "저장됨" : "없음"}</div>
+          <div>eTL</div><div>${me.has_etl_credentials ? "저장됨" : "없음"}</div>
+        `;
+        const hetl = me.has_etl_credentials;
+        $("sync-row-etl").style.display = hetl ? "block" : "none";
+        $("btn-sync").textContent = "📅 캘린더 간편 동기화";
+        $("sync-hint").textContent = hetl
+          ? "「📅 캘린더 간편 동기화」는 창 없이 캘린더 구독만 반영합니다. 과제·퀴즈까지 하려면 아래 순서대로 진행하세요."
+          : "구독 URL이 있으면 보통 창 없이 끝납니다. 과제·퀴즈까지 하려면 eTL 계정을 저장하세요.";
+      } catch (e) {
+        localStorage.removeItem(tokenKey);
+        $("dash").style.display = "none";
+        showBanner("err", e.message || "세션이 만료되었습니다. 다시 로그인해 주세요.");
+      }
+    }
+
+    if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "127.0.0.1" || location.hostname === "localhost")) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+
+    $("btn-login").onclick = async () => {
+      hideBanner();
+      const body = new URLSearchParams();
+      body.set("username", $("email").value.trim());
+      body.set("password", $("password").value);
+      body.set("grant_type", "password");
+      try {
+        const data = await api("/api/auth/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body,
+        });
+        localStorage.setItem(tokenKey, data.access_token);
+        showBanner("ok", "로그인되었습니다.");
+        await refreshMe();
+      } catch (e) {
+        showBanner("err", e.message || "로그인에 실패했습니다.");
+      }
+    };
+
+    $("btn-register").onclick = async () => {
+      hideBanner();
+      try {
+        const data = await api("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: $("email").value.trim(),
+            password: $("password").value,
+          }),
+        });
+        localStorage.setItem(tokenKey, data.access_token);
+        showBanner("ok", "가입되었습니다.");
+        await refreshMe();
+      } catch (e) {
+        showBanner("err", e.message || "가입에 실패했습니다.");
+      }
+    };
+
+    $("btn-logout").onclick = () => {
+      localStorage.removeItem(tokenKey);
+      $("dash").style.display = "none";
+      hideBanner();
+    };
+
+    $("btn-save-etl").onclick = async () => {
+      hideBanner();
+      try {
+        await api("/api/me/etl", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            etl_username: $("etl-user").value.trim(),
+            etl_password: $("etl-pass").value,
+          }),
+        });
+        showBanner("ok", "eTL 계정을 저장했습니다.");
+        await refreshMe();
+      } catch (e) {
+        showBanner("err", e.message || "저장에 실패했습니다.");
+      }
+    };
+
+    $("btn-save-moodle-feed").onclick = async () => {
+      hideBanner();
+      try {
+        await api("/api/me/moodle-calendar-feed", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ feed_url: $("moodle-feed-url").value.trim() }),
+        });
+        showBanner("ok", "구독 URL을 저장했습니다.");
+        await refreshMe();
+      } catch (e) {
+        showBanner("err", e.message || "저장에 실패했습니다.");
+      }
+    };
+
+    $("btn-google").onclick = async () => {
+      hideBanner();
+      try {
+        const { authorization_url } = await api("/api/oauth/google/authorize");
+        window.location.href = authorization_url;
+      } catch (e) {
+        showBanner("err", e.message || "Google 연결을 시작할 수 없습니다.");
+      }
+    };
+
+    function formatSyncResult(r) {
+      const lines = [];
+      const totalAdded = (r.calendar_events_created || 0) + (r.ics_events_created || 0);
+      const courseScanned = !!r.course_list_scanned;
+      const icalOnly = r.ical_ui_context === true;
+      const feedOk = r.ical_feed_configured === true;
+      const syncOk = r.ical_sync_ok === true;
+      const syncFail = r.ical_sync_attempted === true && r.ical_sync_ok === false;
+
+      if (r.etl_awaiting_user) {
+        lines.push(
+          r.login_ok
+            ? "브라우저가 열렸어요. 필요하면 창에서 MFA만 마쳐 주세요."
+            : "브라우저가 열렸어요. 창에서 eTL 로그인·MFA를 이어서 완료해 주세요."
+        );
+      } else if (icalOnly) {
+        if (!feedOk) {
+          lines.push(
+            "캘린더 구독 URL이 아직 없어요. myetl 캘린더 → «URL 주소 가져오기»로 받은 링크를 저장한 뒤 다시 눌러 주세요."
+          );
+        } else if (syncFail) {
+          lines.push(
+            "저장된 구독 URL로 일정을 받아오지 못했어요. 링크가 `calendar/export.php` 형태인지, 만료되지 않았는지 확인해 주세요."
+          );
+        } else if (syncOk) {
+          if ((r.ics_events_created || 0) > 0) {
+            lines.push(`📅 캘린더 구독에서 ${r.ics_events_created}건 Google에 반영했어요.`);
+          } else {
+            lines.push("📭 이번에 새로 추가할 구독 일정은 없어요.");
+          }
+        }
+      } else {
+        if (!r.login_ok) {
+          if (r.message) lines.push(String(r.message));
+        } else {
+          if (r.courses_found === 0 && courseScanned) {
+            lines.push("⚠️ 강의를 찾지 못했어요. myetl에 로그인된 브라우저에서 전체 동기화를 다시 시도해 주세요.");
+          } else if (courseScanned) {
+            lines.push(
+              `강의 ${r.courses_found}개를 확인했어요. (과제 ${r.assign_links_found}·퀴즈 ${r.quiz_links_found}·공지 관련 ${r.announcement_keyword_hits ?? 0})`
+            );
+          }
+          if ((r.ics_events_created || 0) > 0) {
+            lines.push(`캘린더 구독에서 ${r.ics_events_created}건 반영했어요.`);
+          } else if (feedOk && syncOk && courseScanned) {
+            lines.push("📭 캘린더 구독에서 새 일정은 없어요.");
+          }
+        }
+      }
+
+      if (totalAdded > 0) {
+        lines.push(`✅ 총 ${totalAdded}개 일정이 캘린더에 추가됐어요!`);
+      }
+
+      if (!r.etl_awaiting_user && courseScanned && (r.new_assignments || 0) + (r.calendar_events_created || 0) > 0) {
+        lines.push(`스크래핑으로 새로 잡힌 항목 ${r.new_assignments}건, 그중 캘린더에 새로 만든 일정 ${r.calendar_events_created}건`);
+      }
+
+      if (r.message && (icalOnly || r.login_ok || r.etl_awaiting_user)) {
+        lines.push(String(r.message));
+      }
+      const note = (r.login_note || "").trim();
+      if (note && (!r.message || String(r.message).indexOf(note) < 0)) {
+        lines.push("상세: " + note);
+      }
+      if (r.etl_awaiting_user) {
+        lines.push("다음: 창에서 로그인을 마친 뒤 이 페이지에서 「🔄 전체 동기화 시작」을 눌러 주세요.");
+      }
+      if (!r.login_ok && !r.etl_awaiting_user && courseScanned) {
+        lines.push("문제가 계속되면 「🔐 eTL 로그인」을 다시 눌러 브라우저 세션을 맞춰 주세요.");
+      }
+      return lines.join("\n");
+    }
+
+    let syncProgressTimer = null;
+    function stopSyncProgressPoll() {
+      if (syncProgressTimer) {
+        clearInterval(syncProgressTimer);
+        syncProgressTimer = null;
+      }
+    }
+    async function pollSyncProgressOnce() {
+      try {
+        const p = await api("/api/sync/progress");
+        const out = $("sync-out");
+        if (!p.running) return;
+        if (p.phase === "course_scan" && p.course_total > 0) {
+          out.textContent =
+            "강의 " + p.course_index + "/" + p.course_total + " 스캔 중… " + (p.course_name || "");
+        } else if (p.phase === "calendar_extra") {
+          out.textContent = "월간 캘린더에서 추가 일정을 찾는 중…";
+        } else if (p.phase === "starting" || p.phase === "courses") {
+          out.textContent = "동기화 준비 중…";
+        }
+      } catch (_) { /* ignore */ }
+    }
+
+    $("btn-sync").onclick = async () => {
+      $("sync-out").textContent = "";
+      try {
+        const r = await api("/api/sync/", { method: "POST" });
+        $("sync-out").textContent = formatSyncResult(r);
+        await refreshMe();
+      } catch (e) {
+        $("sync-out").textContent = e.message || "동기화에 실패했습니다.";
+      }
+    };
+
+    $("btn-etl-prepare").onclick = async () => {
+      $("sync-out").textContent = "";
+      const b = $("btn-etl-prepare");
+      b.disabled = true;
+      try {
+        const r = await api("/api/sync/etl/prepare", { method: "POST" });
+        $("sync-out").textContent = formatSyncResult(r);
+        await refreshMe();
+      } catch (e) {
+        $("sync-out").textContent = e.message || "실패했습니다.";
+      } finally {
+        b.disabled = false;
+      }
+    };
+
+    $("btn-etl-continue").onclick = async () => {
+      $("sync-out").textContent = "";
+      const b = $("btn-etl-continue");
+      b.disabled = true;
+      stopSyncProgressPoll();
+      syncProgressTimer = setInterval(pollSyncProgressOnce, 450);
+      pollSyncProgressOnce();
+      try {
+        const r = await api("/api/sync/etl/continue", { method: "POST" });
+        $("sync-out").textContent = formatSyncResult(r);
+        await refreshMe();
+      } catch (e) {
+        $("sync-out").textContent = e.message || "실패했습니다.";
+      } finally {
+        stopSyncProgressPoll();
+        b.disabled = false;
+      }
+    };
+
+    $("btn-billing").onclick = async () => {
+      $("billing-out").textContent = "";
+      try {
+        const s = await api("/api/billing/status");
+        $("billing-out").textContent = JSON.stringify(s, null, 2);
+      } catch (e) {
+        $("billing-out").textContent = e.message || "불러오지 못했습니다.";
+      }
+    };
+
+    const q = new URLSearchParams(location.search);
+    if (q.get("google") === "connected") {
+      showBanner("ok", "Google Calendar 연결이 완료되었습니다.");
+      history.replaceState({}, "", "/");
+    } else if (q.get("google")) {
+      showBanner("err", "Google 연결 중 문제가 있었습니다. 잠시 후 다시 시도해 주세요.");
+      history.replaceState({}, "", "/");
+    }
+
+    refreshMe();
+  </script>
+</body>
+</html>

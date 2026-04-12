@@ -1,0 +1,11 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# 시크릿(APP_SECRET_KEY, CRYPTO_KEY, GOOGLE_*, OAuth JSON 경로 등)은 대시보드 Environment / Secret File로만 설정한다.
+# name 은 기본 URL 후보(https://<name>.onrender.com)에 쓰이는 경우가 많음. 최종 퍼블릭 호스트는 대시보드 URL을 따르고,
+# GOOGLE_REDIRECT_URI 는 README대로 https://<실제호스트>/api/oauth/google/callback 한 줄로 맞춘다.
+services:
+  - type: web
+    name: etl-calendar-sync
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /

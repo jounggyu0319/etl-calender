@@ -1,0 +1,13 @@
+{
+  "name": "etl-calendar-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "영구 WebView 세션으로 myetl 로그인(MFA) 유지 후 수집·동기화",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^28.3.3"
+  }
+}
