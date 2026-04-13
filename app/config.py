@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./data.db"
 
     google_client_secrets_file: str = "credentials.json"
+    # Render 등: Google Cloud에서 받은 OAuth 클라이언트 JSON 전체를 문자열로 (파일 없이)
+    google_credentials_json: str | None = None
     google_redirect_uri: str = "http://127.0.0.1:8000/api/oauth/google/callback"
 
     access_token_expire_minutes: int = 60 * 24 * 7
@@ -68,6 +70,13 @@ class Settings(BaseSettings):
     def _parse_etl_chrome_debugger_address(cls, v):
         if v is None or (isinstance(v, str) and not str(v).strip()):
             return "127.0.0.1:9222"
+        return str(v).strip()
+
+    @field_validator("google_credentials_json", mode="before")
+    @classmethod
+    def _empty_google_credentials_json(cls, v):
+        if v is None or (isinstance(v, str) and not str(v).strip()):
+            return None
         return str(v).strip()
 
     @field_validator("deploy_env", mode="before")

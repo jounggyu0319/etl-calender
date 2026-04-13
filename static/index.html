@@ -3,183 +3,207 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#171a21" />
+  <meta name="theme-color" content="#003876" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="description" content="eTL 과제·퀴즈·일정을 Google 캘린더에 자동 등록합니다." />
   <link rel="manifest" href="/static/manifest.json" />
   <title>eTL 과제·일정 자동 캘린더</title>
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            snu: "#003876",
+            surface: "#f5f7fb",
+          },
+          boxShadow: {
+            card: "0 1px 2px rgba(0,56,118,0.04), 0 8px 24px rgba(15,23,42,0.06)",
+            lift: "0 4px 14px rgba(0,56,118,0.12)",
+          },
+        },
+      },
+    };
+  </script>
   <style>
-    :root {
-      color-scheme: dark;
-      --bg: #0f1115;
-      --panel: #171a21;
-      --text: #e8eaef;
-      --muted: #9aa3b2;
-      --accent: #6c8cff;
-      --border: #2a3140;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      background: radial-gradient(1200px 600px at 20% -10%, #1a2240 0%, var(--bg) 55%);
-      color: var(--text);
-      min-height: 100vh;
-      padding-bottom: env(safe-area-inset-bottom, 0);
-    }
-    main { max-width: 720px; margin: 0 auto; padding: 28px 16px 72px; }
-    h1 { font-size: 1.55rem; font-weight: 650; letter-spacing: -0.02em; margin: 0 0 10px; line-height: 1.25; }
-    p.lead { margin: 0 0 22px; color: var(--muted); line-height: 1.6; font-size: 0.98rem; }
-    .card {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 18px 16px 16px;
-      margin-bottom: 14px;
-    }
-    label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 6px; }
-    input {
-      width: 100%;
-      padding: 12px 12px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: #0c0f14;
-      color: var(--text);
-      margin-bottom: 12px;
-      font-size: 16px;
-    }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    button {
-      cursor: pointer;
-      border: 0;
-      border-radius: 10px;
-      padding: 12px 16px;
-      font-weight: 600;
-      font-size: 0.95rem;
-      background: var(--accent);
-      color: #0b1020;
-      min-height: 44px;
-    }
-    button.secondary { background: #2a3140; color: var(--text); }
-    button:disabled { opacity: 0.45; cursor: not-allowed; }
-    .banner {
-      font-size: 0.9rem;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      margin-bottom: 12px;
-      display: none;
-    }
-    .banner.show { display: block; }
-    .banner.err { border-color: #5c2a2a; color: #fecaca; background: #1f1010; }
-    .banner.ok { border-color: #1f4d2f; color: #bbf7d0; background: #0f1a12; }
-    .kv { display: grid; grid-template-columns: minmax(100px, 130px) 1fr; gap: 8px 10px; font-size: 0.9rem; }
-    .kv div:nth-child(odd) { color: var(--muted); }
-    footer { margin-top: 24px; font-size: 0.78rem; color: var(--muted); line-height: 1.55; }
-    code { font-size: 0.85em; color: #cbd5e1; }
-    .hint { font-size: 0.82rem; color: var(--muted); line-height: 1.45; margin-top: 8px; }
-    h2 { margin: 0 0 12px; font-size: 1.05rem; }
-    h3 { margin: 16px 0 8px; font-size: 0.92rem; color: var(--muted); font-weight: 600; }
+    body { font-family: "Pretendard", ui-sans-serif, system-ui, sans-serif; }
+    details summary::-webkit-details-marker { display: none; }
   </style>
 </head>
-<body>
-  <main>
-    <h1>📚 eTL 과제·일정 자동 캘린더 등록</h1>
-    <p class="lead">
-      eTL에 올라온 과제, 퀴즈, 시험 공지를 <strong>Google 캘린더</strong>에 자동으로 추가해 드려요.
-      로그인 한 번으로 매일 자동 동기화됩니다.
-    </p>
+<body class="min-h-dvh bg-surface text-slate-900 antialiased pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+  <div class="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+    <div class="absolute -top-32 left-1/2 h-96 w-[min(100%,48rem)] -translate-x-1/2 rounded-full bg-gradient-to-b from-snu/12 via-sky-100/40 to-transparent blur-3xl"></div>
+    <div class="absolute bottom-0 right-0 h-64 w-64 rounded-full bg-snu/5 blur-3xl"></div>
+  </div>
 
-    <div id="banner" class="banner"></div>
+  <main class="mx-auto max-w-lg px-4 pt-8 sm:max-w-xl sm:px-6 sm:pt-12">
+    <header class="mb-8 text-center sm:mb-10 sm:text-left">
+      <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-snu/80">SNU · eTL → Google Calendar</p>
+      <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+        과제·일정, 캘린더에 <span class="text-snu">자동으로</span>
+      </h1>
+      <p class="mt-3 max-w-xl text-[15px] leading-relaxed text-slate-600 sm:text-base">
+        eTL에 올라온 과제·퀴즈·일정을 <strong class="font-semibold text-slate-800">Google 캘린더</strong>에 맞춰 두면 매일 한 번에 동기화할 수 있어요.
+      </p>
+    </header>
 
-    <section id="auth-card" class="card">
-      <h2>가입 · 로그인</h2>
-      <label for="email">이메일</label>
-      <input id="email" type="email" autocomplete="username" inputmode="email" placeholder="이메일" />
-      <label for="password">비밀번호 (8자 이상)</label>
-      <input id="password" type="password" autocomplete="current-password" placeholder="비밀번호" />
-      <div class="row">
-        <button type="button" id="btn-login">로그인</button>
-        <button type="button" id="btn-register" class="secondary">가입</button>
-        <button type="button" id="btn-logout" class="secondary">로그아웃</button>
+    <div id="banner" class="hidden" role="alert"></div>
+
+    <!-- 로그인 전 (로그인 후에는 스크립트로 숨김) -->
+    <section id="auth-card" class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card sm:p-6">
+      <div class="mb-5 flex items-center justify-between gap-3">
+        <h2 class="text-lg font-bold text-slate-900">시작하기</h2>
+        <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">1분</span>
+      </div>
+      <label for="email" class="mb-1.5 block text-sm font-medium text-slate-700">이메일</label>
+      <input id="email" type="email" autocomplete="username" inputmode="email" placeholder="name@email.com"
+        class="mb-4 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-slate-900 shadow-sm outline-none ring-snu/20 transition placeholder:text-slate-400 focus:border-snu focus:ring-4" />
+      <label for="password" class="mb-1.5 block text-sm font-medium text-slate-700">비밀번호 <span class="font-normal text-slate-400">(8자 이상)</span></label>
+      <input id="password" type="password" autocomplete="current-password" placeholder="••••••••"
+        class="mb-5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-slate-900 shadow-sm outline-none ring-snu/20 transition placeholder:text-slate-400 focus:border-snu focus:ring-4" />
+      <div class="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
+        <button type="button" id="btn-login"
+          class="min-h-11 flex-1 rounded-xl bg-snu px-4 py-3 text-[15px] font-semibold text-white shadow-lift transition hover:bg-[#002a5c] active:scale-[0.99] sm:min-w-[120px]">
+          로그인
+        </button>
+        <button type="button" id="btn-register"
+          class="min-h-11 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50 active:scale-[0.99] sm:min-w-[120px]">
+          가입
+        </button>
+        <button type="button" id="btn-logout"
+          class="min-h-11 rounded-xl border border-transparent px-4 py-3 text-[15px] font-medium text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline sm:ml-auto">
+          로그아웃
+        </button>
       </div>
     </section>
 
-    <section id="dash" class="card" style="display:none;">
-      <h2>설정 순서</h2>
-      <div id="me-kv" class="kv" style="margin-bottom:14px;"></div>
-
-      <h3>1단계 — Google 캘린더 연결</h3>
-      <div class="row">
-        <button type="button" id="btn-google" class="secondary">Google 연결</button>
-      </div>
-
-      <h3>2단계 — eTL 연결 (구독 URL · 계정)</h3>
-      <p class="hint" style="margin-top:0;">캘린더 구독만 쓰면 간편 동기화만으로도 되고, 과제·퀴즈까지 하려면 아래에 eTL 아이디를 저장한 뒤 로그인 버튼을 쓰세요.</p>
-      <label for="moodle-feed-url">캘린더 구독 링크</label>
-      <textarea id="moodle-feed-url" rows="2" spellcheck="false" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0c0f14;color:var(--text);font-size:14px;resize:vertical;" placeholder="https://myetl.snu.ac.kr/calendar/export.php?… 또는 …/export_execute.php?…"></textarea>
-      <p class="hint" style="margin-top:6px;">
-        <a href="https://myetl.snu.ac.kr/calendar" target="_blank" rel="noopener noreferrer">myetl 캘린더</a> → «URL 주소 가져오기»로 복사한 주소를 붙여 넣고 저장합니다. 비우고 저장하면 삭제됩니다.
-      </p>
-      <div class="row">
-        <button type="button" id="btn-save-moodle-feed">저장</button>
-      </div>
-
-      <p class="hint" style="margin-top:14px; margin-bottom:4px;">eTL 아이디·비밀번호 (선택)</p>
-      <label for="etl-user">eTL 아이디</label>
-      <input id="etl-user" autocomplete="username" inputmode="text" placeholder="학번 또는 아이디" />
-      <label for="etl-pass">eTL 비밀번호</label>
-      <input id="etl-pass" type="password" autocomplete="current-password" />
-      <div class="row">
-        <button type="button" id="btn-save-etl" class="secondary">저장</button>
-      </div>
-      <p class="hint" style="margin-top:8px;">
-        과제·퀴즈까지 자동으로 가져올 때만 필요합니다.         통합인증(MFA)을 줄이려면 Chrome을 <code>--remote-debugging-port=9222</code> 로 먼저 실행해 로그인한 뒤,
-        <code>ETL_HEADLESS=false</code>·Chrome일 때 서버가 <code>127.0.0.1:9222</code> 에 붙습니다.
-        그 외에는 동기화 시 새 창이 뜰 수 있고, 창이 보이는 설정에서는 끝난 뒤에도 자동으로 닫지 않을 수 있습니다.
-      </p>
-
-      <h3>3단계 — 동기화 시작</h3>
-      <div id="sync-row-one" style="margin-bottom:12px;">
-        <div class="row">
-          <button type="button" id="btn-sync">📅 캘린더 간편 동기화</button>
-        </div>
-        <p class="hint" style="margin-top:6px;">eTL 캘린더에 등록된 일정만 가져옵니다. 빠르고 간단해요.</p>
-      </div>
-      <div id="sync-row-etl" style="display:none;">
-        <div style="margin-bottom:12px;">
-          <div class="row">
-            <button type="button" id="btn-etl-prepare" class="secondary">🔐 eTL 로그인</button>
+    <!-- 로그인 후 대시보드 -->
+    <section id="dash" class="mt-5 hidden space-y-5" style="display:none;">
+      <!-- 연결 상태 -->
+      <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card sm:p-6">
+        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div class="min-w-0 flex-1">
+            <h2 class="text-lg font-bold text-slate-900">내 연결 상태</h2>
+            <p class="mt-1 text-sm text-slate-500">Google과 eTL만 연결하면 바로 동기화할 수 있어요.</p>
           </div>
-          <p class="hint" style="margin-top:6px;">과제·퀴즈·공지까지 전부 가져오려면 먼저 로그인하세요.</p>
+          <button type="button" id="btn-logout-dash"
+            class="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900">
+            로그아웃
+          </button>
         </div>
-        <div style="margin-bottom:4px;">
-          <div class="row">
-            <button type="button" id="btn-etl-continue">🔄 전체 동기화 시작</button>
+        <div id="me-kv" class="space-y-3"></div>
+      </div>
+
+      <!-- 핵심 액션 -->
+      <div class="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50/80 p-5 shadow-card sm:p-6">
+        <h2 class="mb-1 text-lg font-bold text-slate-900">동기화</h2>
+        <p class="mb-5 text-sm text-slate-500">자주 쓰는 순서대로 배치했어요.</p>
+
+        <div id="sync-row-one" class="mb-4">
+          <button type="button" id="btn-sync"
+            class="flex min-h-[3rem] w-full items-center justify-center gap-2 rounded-2xl bg-snu px-4 py-3.5 text-[15px] font-semibold text-white shadow-lift transition hover:bg-[#002a5c] active:scale-[0.99] disabled:opacity-45">
+            <span class="text-lg" aria-hidden="true">📅</span> 간편 동기화
+          </button>
+          <p class="mt-2.5 text-center text-xs leading-relaxed text-slate-500 sm:text-left">캘린더 구독 URL 기준으로 빠르게 반영해요.</p>
+        </div>
+
+        <div id="sync-row-etl" class="hidden space-y-3" style="display:none;">
+          <button type="button" id="btn-etl-prepare"
+            class="flex min-h-[3rem] w-full items-center justify-center gap-2 rounded-2xl border-2 border-snu/25 bg-white px-4 py-3.5 text-[15px] font-semibold text-snu transition hover:border-snu/50 hover:bg-snu/5 active:scale-[0.99] disabled:opacity-45">
+            <span class="text-lg" aria-hidden="true">🔐</span> eTL 로그인
+          </button>
+          <button type="button" id="btn-etl-continue"
+            class="flex min-h-[3rem] w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3.5 text-[15px] font-semibold text-white shadow-md transition hover:bg-slate-800 active:scale-[0.99] disabled:opacity-45">
+            <span class="text-lg" aria-hidden="true">🔄</span> 전체 동기화
+          </button>
+          <p class="text-xs leading-relaxed text-slate-500">과제·퀴즈까지 가져올 때는 먼저 eTL 로그인 후 전체 동기화를 눌러 주세요.</p>
+        </div>
+
+        <p id="sync-hint" class="mt-4 rounded-xl bg-slate-100/80 px-3 py-2.5 text-xs leading-relaxed text-slate-600"></p>
+        <p id="sync-out" class="mt-3 whitespace-pre-wrap rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm leading-relaxed text-slate-700"></p>
+      </div>
+
+      <!-- 설정 -->
+      <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card sm:p-6">
+        <h2 class="mb-4 text-lg font-bold text-slate-900">연결 설정</h2>
+
+        <div class="mb-6 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+          <div class="mb-3 flex items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold text-slate-800">Google 캘린더</h3>
+            <span class="text-xs text-slate-400">1단계</span>
           </div>
-          <p class="hint" style="margin-top:6px;">과제, 퀴즈, 공지사항까지 전부 캘린더에 추가합니다.</p>
+          <button type="button" id="btn-google"
+            class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50">
+            Google 계정 연결
+          </button>
+        </div>
+
+        <div class="mb-6">
+          <div class="mb-3 flex items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold text-slate-800">캘린더 구독 URL</h3>
+            <span class="text-xs text-slate-400">간편 동기화용</span>
+          </div>
+          <label for="moodle-feed-url" class="sr-only">캘린더 구독 링크</label>
+          <textarea id="moodle-feed-url" rows="2" spellcheck="false"
+            class="w-full resize-y rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-900 shadow-sm outline-none ring-snu/15 focus:border-snu focus:ring-4"
+            placeholder="https://myetl.snu.ac.kr/calendar/export.php?…"></textarea>
+          <p class="mt-2 text-xs leading-relaxed text-slate-500">
+            <a href="https://myetl.snu.ac.kr/calendar" target="_blank" rel="noopener noreferrer" class="font-medium text-snu underline decoration-snu/30 underline-offset-2 hover:decoration-snu">myetl 캘린더</a>에서 «URL 주소 가져오기»로 복사한 주소를 붙여 넣어요. 비우고 저장하면 삭제돼요.
+          </p>
+          <button type="button" id="btn-save-moodle-feed"
+            class="mt-3 w-full rounded-xl bg-snu px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#002a5c] sm:w-auto sm:px-6">
+            구독 URL 저장
+          </button>
+        </div>
+
+        <div class="rounded-xl border border-amber-200/60 bg-amber-50/40 p-4">
+          <div class="mb-3 flex items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold text-slate-800">eTL 계정 <span class="font-normal text-slate-500">(선택)</span></h3>
+            <span class="text-xs text-slate-400">전체 동기화용</span>
+          </div>
+          <label for="etl-user" class="mb-1.5 block text-xs font-medium text-slate-600">eTL 아이디</label>
+          <input id="etl-user" autocomplete="username" inputmode="text" placeholder="학번 또는 아이디"
+            class="mb-3 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none ring-snu/15 focus:border-snu focus:ring-4" />
+          <label for="etl-pass" class="mb-1.5 block text-xs font-medium text-slate-600">eTL 비밀번호</label>
+          <input id="etl-pass" type="password" autocomplete="current-password"
+            class="mb-3 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none ring-snu/15 focus:border-snu focus:ring-4" />
+          <button type="button" id="btn-save-etl"
+            class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 sm:w-auto">
+            eTL 정보 저장
+          </button>
+          <p class="mt-3 text-xs leading-relaxed text-slate-600">
+            과제·퀴즈까지 자동으로 가져올 때만 필요해요. MFA를 줄이려면 Chrome을 <code class="rounded bg-white px-1 py-0.5 font-mono text-[11px] text-slate-700">--remote-debugging-port=9222</code>로 실행한 뒤 로그인하고,
+            서버에서 <code class="rounded bg-white px-1 py-0.5 font-mono text-[11px] text-slate-700">ETL_HEADLESS=false</code>일 때 <code class="rounded bg-white px-1 py-0.5 font-mono text-[11px] text-slate-700">127.0.0.1:9222</code>에 붙는 방식을 쓸 수 있어요.
+          </p>
         </div>
       </div>
-      <p class="hint" id="sync-hint">
-        구독 URL만 있으면 위 첫 버튼만으로도 됩니다. eTL 계정을 저장했다면 「🔐 eTL 로그인」으로 브라우저를 연 뒤 로그인·MFA를 마치고 「🔄 전체 동기화 시작」을 눌러 주세요.
-      </p>
-      <p id="sync-out" class="hint" style="margin-top:10px; white-space:pre-wrap;"></p>
 
-      <h3>확장·데스크톱</h3>
-      <p class="hint" style="margin-top:0;">
-        이미 myetl에 로그인한 브라우저에서만 쓰는 방식입니다. 저장소의 <code>extension</code>·<code>desktop</code> 폴더를 참고하세요.
-      </p>
+      <details class="group rounded-2xl border border-slate-200/80 bg-white shadow-card">
+        <summary class="cursor-pointer list-none rounded-2xl px-5 py-4 text-sm font-semibold text-slate-700 outline-none ring-snu/20 marker:content-none focus-visible:ring-4 [&::-webkit-details-marker]:hidden">
+          <span class="flex items-center justify-between gap-2">
+            확장·데스크톱 안내
+            <span class="text-slate-400 transition group-open:rotate-180">▼</span>
+          </span>
+        </summary>
+        <div class="border-t border-slate-100 px-5 pb-4 pt-0 text-xs leading-relaxed text-slate-500">
+          <p class="pt-3">이미 myetl에 로그인한 브라우저에서만 쓰는 방식이에요. 저장소의 <code class="font-mono text-slate-700">extension</code>·<code class="font-mono text-slate-700">desktop</code> 폴더를 참고하세요.</p>
+        </div>
+      </details>
 
-      <h3>플랜</h3>
-      <div class="row">
-        <button type="button" id="btn-billing" class="secondary">플랜 보기</button>
+      <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card sm:p-6">
+        <h2 class="mb-3 text-sm font-bold text-slate-900">플랜</h2>
+        <button type="button" id="btn-billing"
+          class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-100">
+          플랜 상태 보기
+        </button>
+        <pre id="billing-out" class="mt-3 max-h-64 overflow-auto rounded-xl bg-slate-900 p-3 text-xs leading-relaxed text-slate-200"></pre>
       </div>
-      <pre id="billing-out" style="margin-top:8px;font-size:0.8rem;color:#cbd5e1;white-space:pre-wrap;"></pre>
     </section>
 
-    <footer>
-      <p style="margin:0;">myetl·Google은 각 서비스 약관을 따릅니다. 이 페이지는 일정을 옮기는 보조 도구입니다.</p>
+    <footer class="mt-10 pb-6 text-center text-xs leading-relaxed text-slate-400 sm:text-left">
+      myetl·Google은 각 서비스 약관을 따릅니다. 이 페이지는 일정을 옮기는 보조 도구입니다.
     </footer>
   </main>
 
@@ -188,12 +212,24 @@
     const banner = $("banner");
     const tokenKey = "etlcal_token";
 
+    function escHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
     function showBanner(kind, text) {
-      banner.className = "banner show " + (kind === "ok" ? "ok" : "err");
+      banner.className =
+        "mb-5 rounded-2xl border px-4 py-3.5 text-sm font-medium shadow-sm " +
+        (kind === "ok"
+          ? "border-emerald-200/90 bg-emerald-50 text-emerald-900"
+          : "border-red-200/90 bg-red-50 text-red-900");
       banner.textContent = text;
     }
     function hideBanner() {
-      banner.className = "banner";
+      banner.className = "hidden";
       banner.textContent = "";
     }
 
@@ -218,31 +254,68 @@
       return data;
     }
 
+    function statusChip(ok, label, sub) {
+      const tone = ok
+        ? "border-emerald-200/80 bg-emerald-50/90 text-emerald-900"
+        : "border-slate-200 bg-slate-50 text-slate-600";
+      const dot = ok ? "bg-emerald-500" : "bg-slate-300";
+      return `
+        <div class="flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 ${tone}">
+          <div class="flex min-w-0 items-center gap-2.5">
+            <span class="h-2 w-2 shrink-0 rounded-full ${dot}" aria-hidden="true"></span>
+            <span class="text-sm font-semibold">${escHtml(label)}</span>
+          </div>
+          <span class="shrink-0 text-xs font-medium opacity-90">${escHtml(sub)}</span>
+        </div>`;
+    }
+
+    function doLogout() {
+      localStorage.removeItem(tokenKey);
+      $("dash").style.display = "none";
+      $("dash").classList.add("hidden");
+      $("auth-card").classList.remove("hidden");
+      hideBanner();
+    }
+
     async function refreshMe() {
       hideBanner();
       if (!token()) {
         $("dash").style.display = "none";
+        $("dash").classList.add("hidden");
+        $("auth-card").classList.remove("hidden");
         return;
       }
       try {
         const me = await api("/api/me/");
+        $("auth-card").classList.add("hidden");
         $("dash").style.display = "block";
+        $("dash").classList.remove("hidden");
+
         $("me-kv").innerHTML = `
-          <div>이메일</div><div>${me.email}</div>
-          <div>플랜</div><div>${me.plan}</div>
-          <div>Google</div><div>${me.has_google ? "연결됨" : "아직"}</div>
-          <div>구독 URL</div><div>${me.has_moodle_calendar_feed ? "저장됨" : "없음"}</div>
-          <div>eTL</div><div>${me.has_etl_credentials ? "저장됨" : "없음"}</div>
+          <div class="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+            <span class="font-medium">${escHtml(me.email)}</span>
+            <span class="rounded-full bg-white px-2.5 py-0.5 text-xs font-semibold text-snu ring-1 ring-slate-200">${escHtml(me.plan)}</span>
+          </div>
+          <div class="grid gap-2 sm:grid-cols-3">
+            ${statusChip(me.has_google, "Google", me.has_google ? "연결됨" : "미연결")}
+            ${statusChip(me.has_moodle_calendar_feed, "구독 URL", me.has_moodle_calendar_feed ? "저장됨" : "없음")}
+            ${statusChip(me.has_etl_credentials, "eTL 계정", me.has_etl_credentials ? "저장됨" : "없음")}
+          </div>
         `;
+
         const hetl = me.has_etl_credentials;
         $("sync-row-etl").style.display = hetl ? "block" : "none";
-        $("btn-sync").textContent = "📅 캘린더 간편 동기화";
+        $("sync-row-etl").classList.toggle("hidden", !hetl);
+        $("btn-sync").innerHTML =
+          '<span class="text-lg" aria-hidden="true">📅</span> 간편 동기화';
         $("sync-hint").textContent = hetl
-          ? "「📅 캘린더 간편 동기화」는 창 없이 캘린더 구독만 반영합니다. 과제·퀴즈까지 하려면 아래 순서대로 진행하세요."
-          : "구독 URL이 있으면 보통 창 없이 끝납니다. 과제·퀴즈까지 하려면 eTL 계정을 저장하세요.";
+          ? "「간편 동기화」는 창 없이 구독 캘린더만 반영해요. 과제·퀴즈까지 하려면 아래에서 eTL 로그인 후 전체 동기화를 진행하세요."
+          : "구독 URL만 있으면 보통 창 없이 끝나요. 과제·퀴즈까지 하려면 eTL 계정을 저장하세요.";
       } catch (e) {
         localStorage.removeItem(tokenKey);
         $("dash").style.display = "none";
+        $("dash").classList.add("hidden");
+        $("auth-card").classList.remove("hidden");
         showBanner("err", e.message || "세션이 만료되었습니다. 다시 로그인해 주세요.");
       }
     }
@@ -290,11 +363,8 @@
       }
     };
 
-    $("btn-logout").onclick = () => {
-      localStorage.removeItem(tokenKey);
-      $("dash").style.display = "none";
-      hideBanner();
-    };
+    $("btn-logout").onclick = () => doLogout();
+    $("btn-logout-dash").onclick = () => doLogout();
 
     $("btn-save-etl").onclick = async () => {
       hideBanner();
@@ -405,10 +475,10 @@
         lines.push("상세: " + note);
       }
       if (r.etl_awaiting_user) {
-        lines.push("다음: 창에서 로그인을 마친 뒤 이 페이지에서 「🔄 전체 동기화 시작」을 눌러 주세요.");
+        lines.push("다음: 창에서 로그인을 마친 뒤 이 페이지에서 「전체 동기화」를 눌러 주세요.");
       }
       if (!r.login_ok && !r.etl_awaiting_user && courseScanned) {
-        lines.push("문제가 계속되면 「🔐 eTL 로그인」을 다시 눌러 브라우저 세션을 맞춰 주세요.");
+        lines.push("문제가 계속되면 「eTL 로그인」을 다시 눌러 브라우저 세션을 맞춰 주세요.");
       }
       return lines.join("\n");
     }
@@ -492,11 +562,18 @@
     };
 
     const q = new URLSearchParams(location.search);
-    if (q.get("google") === "connected") {
+    const g = q.get("google");
+    if (g === "connected") {
       showBanner("ok", "Google Calendar 연결이 완료되었습니다.");
       history.replaceState({}, "", "/");
-    } else if (q.get("google")) {
-      showBanner("err", "Google 연결 중 문제가 있었습니다. 잠시 후 다시 시도해 주세요.");
+    } else if (g) {
+      const oauthErr =
+        g === "no_client"
+          ? "서버에 Google OAuth 클라이언트 설정이 없습니다. Render에 GOOGLE_CREDENTIALS_JSON 또는 credentials 파일 경로를 설정해 주세요."
+          : g === "bad_client_json"
+            ? "GOOGLE_CREDENTIALS_JSON 형식이 잘못되었습니다. JSON 한 덩어리인지 확인해 주세요."
+            : "Google 연결 중 문제가 있었습니다. 잠시 후 다시 시도해 주세요.";
+      showBanner("err", oauthErr);
       history.replaceState({}, "", "/");
     }
 

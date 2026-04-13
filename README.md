@@ -33,7 +33,8 @@ Render는 `PORT`를 자동 주입합니다. 로컬에서는 `PORT` 없이도 위
 | `APP_SECRET_KEY` | **예** | JWT·세션 등 서명용 비밀값 |
 | `CRYPTO_KEY` | **예** | Fernet 키(민감 필드 암호화). 생성: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
 | `DATABASE_URL` | 아니오 (기본 `sqlite:///./data.db`) | SQLAlchemy URL. 아래 «프로덕션 SQLite» 참고 |
-| `GOOGLE_CLIENT_SECRETS_FILE` | **사실상 예** | OAuth 클라이언트 JSON 경로. Secret File을 `/etc/secrets/credentials.json` 등에 마운트한 뒤 그 경로를 지정 |
+| `GOOGLE_CREDENTIALS_JSON` | **Render 권장** | Google OAuth **클라이언트 JSON 전체**를 문자열로(`json.dumps` 한 줄). 설정 시 파일 없이 동작 |
+| `GOOGLE_CLIENT_SECRETS_FILE` | 로컬·파일 주입 시 | 기본 `credentials.json`. `GOOGLE_CREDENTIALS_JSON` 이 있으면 파일은 생략 가능 |
 | `GOOGLE_REDIRECT_URI` | **프로덕션에서 예** | `https://<실제호스트>/api/oauth/google/callback` (끝 슬래시 없음) |
 | `DEPLOY_ENV` | **Render 권장** | `production`이면 Selenium eTL 경로 비활성화·`requirements.txt`만으로 기동. 로컬 브라우저 동기화는 `local`(기본) + [`requirements-dev.txt`](requirements-dev.txt) |
 | `APP_NAME` | 아니오 | 기본 `eTL Calendar Sync` |
@@ -49,7 +50,7 @@ Render는 `PORT`를 자동 주입합니다. 로컬에서는 `PORT` 없이도 위
 
 로컬에서만 `http://` OAuth를 쓸 때는 앱이 lifespan에서 `OAUTHLIB_INSECURE_TRANSPORT=1`을 설정합니다. 프로덕션 Render에는 넣지 않습니다.
 
-`credentials.json`은 커밋하지 말고, Render **Environment** 또는 **Secret File**로 주입한 경로를 `GOOGLE_CLIENT_SECRETS_FILE`에 맞춥니다.
+`credentials.json`은 커밋하지 말고, Render에는 **`GOOGLE_CREDENTIALS_JSON`**(JSON 문자열) 또는 Secret File + `GOOGLE_CLIENT_SECRETS_FILE` 경로로 주입합니다.
 
 ### Render Environment 키 체크리스트 (값은 대시보드에서만 설정)
 
@@ -60,6 +61,7 @@ Render는 `PORT`를 자동 주입합니다. 로컬에서는 `PORT` 없이도 위
 | ☐ | `APP_SECRET_KEY` |
 | ☐ | `CRYPTO_KEY` |
 | ☐ | `DATABASE_URL` |
+| ☐ | `GOOGLE_CREDENTIALS_JSON` |
 | ☐ | `GOOGLE_CLIENT_SECRETS_FILE` |
 | ☐ | `GOOGLE_REDIRECT_URI` |
 | ☐ | `DEPLOY_ENV` |
@@ -74,7 +76,7 @@ Render는 `PORT`를 자동 주입합니다. 로컬에서는 `PORT` 없이도 위
 | ☐ | `ETL_BROWSER` |
 | ☐ | `ETL_CHROME_DEBUGGER_ADDRESS` |
 
-프로덕션에서 필수에 가까운 것은 `APP_SECRET_KEY`, `CRYPTO_KEY`, `GOOGLE_CLIENT_SECRETS_FILE`, `GOOGLE_REDIRECT_URI`, **`DEPLOY_ENV=production`** 입니다. 나머지는 기본값으로도 기동할 수 있습니다.
+프로덕션에서 필수에 가까운 것은 `APP_SECRET_KEY`, `CRYPTO_KEY`, **`GOOGLE_CREDENTIALS_JSON` 또는 `GOOGLE_CLIENT_SECRETS_FILE`**, `GOOGLE_REDIRECT_URI`, **`DEPLOY_ENV=production`** 입니다. 나머지는 기본값으로도 기동할 수 있습니다.
 
 **의존성**: Render 빌드는 `pip install -r requirements.txt`만 실행합니다(Selenium 미포함). 로컬에서 「🔐 eTL 로그인」「🔄 전체 동기화」를 쓰려면 `pip install -r requirements-dev.txt`로 Selenium을 추가하세요.
 

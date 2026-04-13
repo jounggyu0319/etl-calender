@@ -1,4 +1,4 @@
-import os
+import json
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.db import get_db
 from app.deps import get_current_user
+from app.google_oauth_client import load_google_oauth_client_dict
 from app.models import User
 from app.security import create_google_oauth_state, decode_google_oauth_state, encrypt_text
 from calendar_service import SCOPES
@@ -20,14 +21,25 @@ def google_authorize(
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings),
 ) -> dict[str, str]:
-    if not os.path.isfile(settings.google_client_secrets_file):
+    try:
+        client_cfg = load_google_oauth_client_dict(settings)
+    except json.JSONDecodeError as e:
         raise HTTPException(
             status_code=503,
-            detail="서버에 Google OAuth 클라이언트 파일(credentials.json)이 없습니다.",
+            detail=f"GOOGLE_CREDENTIALS_JSON 이 올바른 JSON이 아닙니다: {e}",
+        ) from e
+    if client_cfg is None:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Google OAuth 클라이언트 설정이 없습니다. "
+                "Render에는 환경 변수 GOOGLE_CREDENTIALS_JSON(전체 JSON), "
+                "로컬에는 credentials.json 또는 동일 변수를 설정하세요."
+            ),
         )
     state = create_google_oauth_state(user.id, settings)
-    flow = Flow.from_client_secrets_file(
-        settings.google_client_secrets_file,
+    flow = Flow.from_client_config(
+        client_cfg,
         scopes=SCOPES,
         redirect_uri=settings.google_redirect_uri,
     )
@@ -54,11 +66,15 @@ def google_callback(
     if request.query_params.get("error"):
         return RedirectResponse(url="/?google=denied", status_code=302)
 
-    if not os.path.isfile(settings.google_client_secrets_file):
+    try:
+        client_cfg = load_google_oauth_client_dict(settings)
+    except json.JSONDecodeError:
+        return RedirectResponse(url="/?google=bad_client_json", status_code=302)
+    if client_cfg is None:
         return RedirectResponse(url="/?google=no_client", status_code=302)
 
-    flow = Flow.from_client_secrets_file(
-        settings.google_client_secrets_file,
+    flow = Flow.from_client_config(
+        client_cfg,
         scopes=SCOPES,
         redirect_uri=settings.google_redirect_uri,
     )
