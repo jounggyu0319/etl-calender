@@ -17,7 +17,6 @@ import time
 import urllib.request
 from collections.abc import Callable
 from datetime import date, datetime
-from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 CHROME_PROFILE_DIR = str(pathlib.Path.home() / ".etlcal_chrome_profile")
@@ -199,17 +198,7 @@ def _course_link_display_name(el, href: str | None) -> str:
     return "강의"
 
 
-@dataclass
-class CollectResult:
-    login_ok: bool = False
-    login_note: str | None = None  # 로그인 단계 실패 등
-    collect_failed_note: str | None = None  # 로그인 이후 수집 단계 오류
-    courses_found: int = 0
-    assign_links_found: int = 0
-    quiz_links_found: int = 0
-    announcement_keyword_hits: int = 0
-    new_items: list[dict] = field(default_factory=list)
-    updated_seen: set[str] = field(default_factory=set)
+from app.etl_types import CollectResult
 
 
 def _resolve_browser_token(browser: str) -> str:
@@ -306,26 +295,12 @@ def get_driver(
                 flush=True,
             )
             logger.exception("[ETL] debuggerAddress 연결 실패")
-            try:
-                print("[ETL] 일반 Chrome 프로필로 WebDriver 새 세션 시작…", flush=True)
-                fb = ChromeOptions()
-                fb.add_argument(f"--user-data-dir={CHROME_PROFILE_DIR}")
-                fb.add_experimental_option("detach", True)
-                fb.add_argument("--no-sandbox")
-                fb.add_argument("--disable-dev-shm-usage")
-                fb.add_argument("--window-size=1400,900")
-                fb.add_argument("--disable-blink-features=AutomationControlled")
-                fb.add_argument("--lang=ko-KR,en-US,en")
-                fb.add_experimental_option("excludeSwitches", ["enable-automation"])
-                fb.add_experimental_option("useAutomationExtension", False)
-                driver = webdriver.Chrome(options=fb)
-                print("[ETL] 폴백 Chrome WebDriver 생성 완료", flush=True)
-            except Exception as e2:
-                print(
-                    f"[ETL] 폴백 Chrome 생성도 실패: {type(e2).__name__}: {e2}",
-                    flush=True,
-                )
-                raise e from e2
+            raise RuntimeError(
+                "Chrome을 디버그 모드(원격 디버깅)로 실행해 주세요. "
+                "예(macOS): `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome "
+                "--remote-debugging-port=9222` 로 Chrome을 띄운 뒤, 이미 myetl에 로그인·MFA까지 "
+                f"마친 상태에서 다시 「🔐 eTL 로그인」을 눌러 주세요. (연결 시도 주소: {dbg})"
+            ) from e
 
         try:
             _apply_chromium_stealth(driver)

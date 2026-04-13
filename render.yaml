@@ -6,6 +6,11 @@ services:
   - type: web
     name: etl-calendar-sync
     runtime: python
+    # plan 생략 시 기본 starter(유료)라 Blueprint 검증/결제 단계에서 막힐 수 있음
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /
+    envVars:
+      - key: DEPLOY_ENV
+        value: production

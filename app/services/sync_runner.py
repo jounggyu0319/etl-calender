@@ -10,17 +10,22 @@ from app.security import decrypt_text, encrypt_text
 from app.services.etl_session_holder import peek as etl_driver_peek
 from app.services.etl_session_holder import remove as etl_driver_remove
 from app.services.etl_session_holder import store as etl_driver_store
+from app.etl_types import CollectResult
 from app.services.moodle_ics import fetch_moodle_calendar_ics, ical_to_assignment_items
 from app.services.sync_progress import clear_progress, set_progress
 from calendar_service import add_assignment_to_calendar, ensure_calendar_service, sync_assignments_to_calendar
-from etl_scraper import (
-    SYNC_MAX_SEC,
-    CollectResult,
-    collect_etl_activities_with_existing_driver,
-    get_driver,
-    login,
-    login_resume_session,
-)
+
+
+def _etl_scraper():
+    """Selenium은 requirements-dev.txt 에만 포함. 프로덕션 이미지에서는 이 모듈을 import 하지 않음."""
+    try:
+        import etl_scraper as m
+    except ImportError as e:
+        raise RuntimeError(
+            "Selenium(eTL 스크래퍼)가 설치되어 있지 않습니다. 로컬에서 브라우저 동기화를 쓰려면 "
+            "`pip install -r requirements-dev.txt` 로 selenium 을 설치하세요."
+        ) from e
+    return m
 
 
 def _seen_set(user: User) -> set[str]:
@@ -339,50 +344,39 @@ def run_user_sync(
     etl_user = (decrypt_text(user.etl_username_enc, settings) or "").strip()
     etl_pass = (decrypt_text(user.etl_password_enc, settings) or "").strip("\r\n")
 
-    if not etl_user or not etl_pass:
-        _commit_seen_and_google_with_settings(db, user, settings, merged_seen, google_json, google_changed)
-        ok_report = CollectResult(login_ok=True)
-        parts: list[str] = []
-        if ics_err:
-            parts.append("[캘린더 구독] " + ics_err)
-        if ics_created_total:
-            parts.append(f"캘린더 구독에서 {ics_created_total}건 Google에 반영했습니다.")
-        if not ical_feed_configured:
-            parts.append("myetl «URL 주소 가져오기» 구독 링크를 저장하면, 브라우저 로그인 없이 이 버튼만으로 동기화할 수 있어요.")
-        parts.append(
-            "과제·퀴즈·공지까지 하려면 eTL 아이디·비밀번호를 저장한 뒤, "
-            "「🔐 eTL 로그인」→「🔄 전체 동기화 시작」을 사용하세요."
-        )
-        return _diag(
-            ok_report,
-            new_count=0,
-            created=0,
-            ics_created=ics_created_total,
-            message=" ".join(parts) if parts else None,
-            course_list_scanned=False,
-            ical_feed_configured=ical_feed_configured,
-            ical_sync_attempted=ical_sync_attempted,
-            ical_sync_ok=ical_sync_ok,
-            ical_ui_context=True,
-        )
-
     _commit_seen_and_google_with_settings(db, user, settings, merged_seen, google_json, google_changed)
-
+    ok_report = CollectResult(login_ok=True)
     parts: list[str] = []
     if ics_err:
         parts.append("[캘린더 구독] " + ics_err)
     if ics_created_total:
         parts.append(f"캘린더 구독에서 {ics_created_total}건 Google에 반영했습니다.")
-    parts.append(
-        "과제·퀴즈·공지는 「🔐 eTL 로그인」으로 브라우저를 연 뒤 myetl에서 로그인·MFA를 마치고, "
-        "「🔄 전체 동기화 시작」을 눌러 주세요."
-    )
+    if not ical_feed_configured:
+        parts.append(
+            "myetl 캘린더 → «URL 주소 가져오기»로 받은 구독 링크를 저장하면, "
+            "eTL 로그인 없이 이 버튼만으로 동기화할 수 있어요."
+        )
+    if settings.deploy_env == "production":
+        if etl_user and etl_pass:
+            parts.append(
+                "클라우드 배포에서는 브라우저 eTL 동기화를 사용할 수 없습니다. "
+                "구독 URL·「📅 캘린더 간편 동기화」만 이용해 주세요."
+            )
+    elif etl_user and etl_pass:
+        parts.append(
+            "과제·퀴즈·공지까지 하려면 「🔐 eTL 로그인」→ myetl 로그인·MFA → 「🔄 전체 동기화 시작」 순서를 사용하세요."
+        )
+    elif (not etl_user or not etl_pass) and settings.deploy_env != "production":
+        parts.append(
+            "과제·퀴즈·공지까지 하려면 eTL 아이디·비밀번호를 저장한 뒤, "
+            "「🔐 eTL 로그인」→「🔄 전체 동기화 시작」 순서(로컬)를 사용하세요."
+        )
     return _diag(
-        CollectResult(login_ok=True),
+        ok_report,
         new_count=0,
         created=0,
         ics_created=ics_created_total,
-        message=" ".join(parts),
+        message=" ".join(parts) if parts else None,
         course_list_scanned=False,
         ical_feed_configured=ical_feed_configured,
         ical_sync_attempted=ical_sync_attempted,
@@ -428,6 +422,21 @@ def run_etl_prepare_browser(
             login_note=None,
         )
 
+    if settings.deploy_env == "production":
+        return SyncResult(
+            new_assignments=0,
+            calendar_events_created=0,
+            ics_events_created=0,
+            message="클라우드 배포 환경에서는 브라우저 eTL 동기화(Selenium)를 사용할 수 없습니다. "
+            "「📅 캘린더 간편 동기화」로 myetl 캘린더 구독 URL만 반영해 주세요.",
+            login_ok=False,
+            courses_found=0,
+            assign_links_found=0,
+            quiz_links_found=0,
+            announcement_keyword_hits=0,
+            login_note=None,
+        )
+
     if settings.etl_headless:
         return SyncResult(
             new_assignments=0,
@@ -462,14 +471,15 @@ def run_etl_prepare_browser(
     if ics_created_total:
         parts_head.append(f"iCal {ics_created_total}건 반영.")
 
+    sc = _etl_scraper()
     driver = None
     try:
-        driver = get_driver(
+        driver = sc.get_driver(
             headless=False,
             browser=settings.etl_browser,
             chrome_debugger_address=settings.etl_chrome_debugger_address,
         )
-        ok, note = login(
+        ok, note = sc.login(
             driver,
             etl_user,
             etl_pass,
@@ -599,13 +609,29 @@ def run_etl_continue_sync(
             login_note=None,
         )
 
+    if settings.deploy_env == "production":
+        return SyncResult(
+            new_assignments=0,
+            calendar_events_created=0,
+            ics_events_created=0,
+            message="클라우드 배포 환경에서는 브라우저 eTL 동기화를 사용할 수 없습니다. "
+            "「📅 캘린더 간편 동기화」를 사용해 주세요.",
+            login_ok=False,
+            courses_found=0,
+            assign_links_found=0,
+            quiz_links_found=0,
+            announcement_keyword_hits=0,
+            login_note=None,
+        )
+
     driver = etl_driver_peek(user.id)
     if driver is None:
         return SyncResult(
             new_assignments=0,
             calendar_events_created=0,
             ics_events_created=0,
-            message="먼저 「🔐 eTL 로그인」을 눌러 주세요.",
+            message="먼저 「🔐 eTL 로그인」을 눌러 주세요. "
+            "(구독 URL만 반영하려면 「📅 캘린더 간편 동기화」를 사용하세요.)",
             login_ok=False,
             courses_found=0,
             assign_links_found=0,
@@ -629,6 +655,7 @@ def run_etl_continue_sync(
 
     headed_pause = 0.0 if settings.etl_headless else float(settings.etl_headed_pause_sec)
     report: CollectResult | None = None
+    sc = _etl_scraper()
     try:
         set_progress(
             user.id,
@@ -638,7 +665,7 @@ def run_etl_continue_sync(
             course_total=0,
             course_name="",
         )
-        ok, note = login_resume_session(driver, allow_interactive_mfa=True)
+        ok, note = sc.login_resume_session(driver, allow_interactive_mfa=True)
         if not ok:
             report = CollectResult(login_ok=False, login_note=note)
             return _apply_etl_collect_report(
@@ -658,10 +685,10 @@ def run_etl_continue_sync(
             )
 
         try:
-            report = collect_etl_activities_with_existing_driver(
+            report = sc.collect_etl_activities_with_existing_driver(
                 driver,
                 merged_seen,
-                sync_deadline=time.monotonic() + SYNC_MAX_SEC,
+                sync_deadline=time.monotonic() + sc.SYNC_MAX_SEC,
                 progress_cb=lambda d: set_progress(user.id, running=True, **d),
             )
         except Exception as e:

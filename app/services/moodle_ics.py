@@ -9,7 +9,7 @@ import hashlib
 import logging
 import re
 from datetime import date, datetime, timezone
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 import requests
 from icalendar import Calendar
@@ -41,10 +41,15 @@ def validate_moodle_calendar_feed_url(raw: str) -> str:
     if host not in ALLOWED_FEED_HOSTS:
         raise ValueError("허용된 주소는 myetl.snu.ac.kr 입니다.")
     p = (urlparse(u).path or "").lower()
-    if "export" not in p and "export.php" not in p and "/ical" not in p:
+    if (
+        "export_execute.php" not in p
+        and "export.php" not in p
+        and "/ical" not in p
+        and "export" not in p
+    ):
         raise ValueError(
             "캘린더 «URL 주소 가져오기» 링크인지 확인해 주세요. "
-            "경로에 보통 `calendar/export.php` 또는 `export.php`, 혹은 `ical` 이 포함됩니다. "
+            "경로에 보통 `calendar/export.php`, `calendar/export_execute.php`, 혹은 `ical` 이 포함됩니다. "
             "캘린더 화면만(`.../calendar`) 복사하면 HTML이 내려와 동기화되지 않습니다."
         )
     return u
@@ -108,9 +113,27 @@ def _fetch_ics_once(url: str, timeout: int = 10) -> tuple[str, int]:
 
 
 def _alternate_feed_urls(url: str) -> list[str]:
-    """구독 URL은 myetl 단일 호스트만 사용."""
+    """myetl 단일 호스트. `export.php` ↔ `export_execute.php` 를 순서대로 시도."""
     u = validate_moodle_calendar_feed_url(url)
-    return [u]
+    pr = urlparse(u)
+    path = pr.path or ""
+    out: list[str] = [u]
+    pl = path.lower()
+    if "export_execute.php" in pl:
+        alt_path = re.sub(r"export_execute\.php", "export.php", path, count=1, flags=re.IGNORECASE)
+        if alt_path != path:
+            out.append(urlunparse((pr.scheme, pr.netloc, alt_path, pr.params, pr.query, pr.fragment)))
+    elif re.search(r"export\.php", pl) and "export_execute" not in pl:
+        alt_path = re.sub(r"export\.php", "export_execute.php", path, count=1, flags=re.IGNORECASE)
+        if alt_path != path:
+            out.append(urlunparse((pr.scheme, pr.netloc, alt_path, pr.params, pr.query, pr.fragment)))
+    seen: set[str] = set()
+    uniq: list[str] = []
+    for x in out:
+        if x not in seen:
+            seen.add(x)
+            uniq.append(x)
+    return uniq
 
 
 def fetch_moodle_calendar_ics(url: str, timeout: int = 10) -> str:

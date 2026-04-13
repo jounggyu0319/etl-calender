@@ -5,6 +5,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
+    # `production`: Selenium eTL 경로 비활성화(Render 등). `local`: 브라우저 동기화 가능( selenium 은 dev 요구 ).
+    deploy_env: str = "local"
+
     app_name: str = "eTL Calendar Sync"
     app_secret_key: str
     crypto_key: str
@@ -66,6 +69,16 @@ class Settings(BaseSettings):
         if v is None or (isinstance(v, str) and not str(v).strip()):
             return "127.0.0.1:9222"
         return str(v).strip()
+
+    @field_validator("deploy_env", mode="before")
+    @classmethod
+    def _parse_deploy_env(cls, v):
+        if v is None or (isinstance(v, str) and not str(v).strip()):
+            return "local"
+        s = str(v).strip().lower()
+        if s in ("production", "prod", "render", "cloud"):
+            return "production"
+        return "local"
 
     @field_validator("etl_browser", mode="before")
     @classmethod

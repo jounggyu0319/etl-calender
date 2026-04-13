@@ -118,7 +118,7 @@
       <h3>2단계 — eTL 연결 (구독 URL · 계정)</h3>
       <p class="hint" style="margin-top:0;">캘린더 구독만 쓰면 간편 동기화만으로도 되고, 과제·퀴즈까지 하려면 아래에 eTL 아이디를 저장한 뒤 로그인 버튼을 쓰세요.</p>
       <label for="moodle-feed-url">캘린더 구독 링크</label>
-      <textarea id="moodle-feed-url" rows="2" spellcheck="false" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0c0f14;color:var(--text);font-size:14px;resize:vertical;" placeholder="https://myetl.snu.ac.kr/calendar/export.php?…"></textarea>
+      <textarea id="moodle-feed-url" rows="2" spellcheck="false" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0c0f14;color:var(--text);font-size:14px;resize:vertical;" placeholder="https://myetl.snu.ac.kr/calendar/export.php?… 또는 …/export_execute.php?…"></textarea>
       <p class="hint" style="margin-top:6px;">
         <a href="https://myetl.snu.ac.kr/calendar" target="_blank" rel="noopener noreferrer">myetl 캘린더</a> → «URL 주소 가져오기»로 복사한 주소를 붙여 넣고 저장합니다. 비우고 저장하면 삭제됩니다.
       </p>
@@ -361,7 +361,7 @@
           );
         } else if (syncFail) {
           lines.push(
-            "저장된 구독 URL로 일정을 받아오지 못했어요. 링크가 `calendar/export.php` 형태인지, 만료되지 않았는지 확인해 주세요."
+            "저장된 구독 URL로 일정을 받아오지 못했어요. `calendar/export.php` 또는 `calendar/export_execute.php` 형태인지, 토큰 만료 여부를 확인해 주세요."
           );
         } else if (syncOk) {
           if ((r.ics_events_created || 0) > 0) {

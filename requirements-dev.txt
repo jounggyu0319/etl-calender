@@ -1,0 +1,4 @@
+# 로컬에서 eTL Selenium(브라우저) 동기화를 쓸 때만 추가 설치:
+#   pip install -r requirements-dev.txt
+-r requirements.txt
+selenium==4.27.1
