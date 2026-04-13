@@ -1,3 +1,4 @@
+# Render/프로덕션: Selenium·webdriver 패키지 없음(빌드 실패 방지). 브라우저 동기화는 requirements-dev.txt
 fastapi==0.115.6
 uvicorn[standard]==0.32.1
 sqlalchemy==2.0.36
