@@ -99,11 +99,14 @@ def google_callback(
     if user is None:
         return RedirectResponse(url="/?google=no_user", status_code=302)
 
-    creds = flow.credentials
-    raw = creds.to_json()
-    # 이미 저장된 토큰이 있으면 병합할 필요 없음 — 전체 교체
-    user.google_creds_enc = encrypt_text(raw, settings)
-    db.add(user)
-    db.commit()
+    try:
+        creds = flow.credentials
+        raw = creds.to_json()
+        user.google_creds_enc = encrypt_text(raw, settings)
+        db.add(user)
+        db.commit()
+    except Exception as exc:
+        logger.error("Google OAuth 저장 실패: %s", exc)
+        return RedirectResponse(url="/?google=save_error", status_code=302)
 
     return RedirectResponse(url="/?google=connected", status_code=302)
