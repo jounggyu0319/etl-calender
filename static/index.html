@@ -699,9 +699,10 @@
     const g = q.get("google");
     if (g === "connected") {
       history.replaceState({}, "", "/");
-      await refreshMe({ keepBanner: false });
-      showBanner("ok", "Google Calendar 연결이 완료되었습니다.");
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      refreshMe({ keepBanner: false }).then(() => {
+        showBanner("ok", "Google Calendar 연결이 완료되었습니다.");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
     } else if (g) {
       const oauthErr =
         g === "no_client"
@@ -720,12 +721,13 @@
                       ? "Google 토큰 저장에 실패했습니다. 서버 로그를 확인해 주세요."
                       : "Google 연결 중 문제가 있었습니다. 잠시 후 다시 시도해 주세요.";
       history.replaceState({}, "", "/");
-      await refreshMe({ keepBanner: true });
-      showBanner("err", oauthErr);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      refreshMe({ keepBanner: true }).then(() => {
+        showBanner("err", oauthErr);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    } else {
+      refreshMe();
     }
-
-    if (!g) refreshMe();
   </script>
 </body>
 </html>
