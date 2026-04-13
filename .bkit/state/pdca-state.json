@@ -1,0 +1,35 @@
+{
+  "version": "2.1.4",
+  "project": "etl-calendar",
+  "activeFeature": "etl-extension-no2fa",
+  "phase": "check",
+  "iteration": 1,
+  "lastUpdated": "2026-04-13",
+  "features": {
+    "etl-extension-no2fa": {
+      "phase": "check",
+      "status": "gap_fixed",
+      "planDoc": "docs/01-plan/features/etl-extension-no2fa.plan.md",
+      "designDoc": "docs/02-design/features/etl-extension-no2fa.design.md",
+      "gapAnalysis": {
+        "passed": [
+          "background.js service worker",
+          "아이콘 PNG 3종 유효",
+          "manifest.json 구조",
+          "메시지 타입 일관성 (MYETL_PROGRESS)",
+          "Electron WebView persist 세션",
+          "Electron 로그인 감지 로직",
+          "myetl-collect.js executeJavaScript 주입"
+        ],
+        "fixed": [
+          "desktop/index.html CSP connect-src 누락 → 수정 완료",
+          "desktop/renderer.js JWT 수동 입력 UX → 로그인 폼 추가",
+          "static/index.html 동기화 히스토리 (localStorage 방식) → 완료"
+        ],
+        "pending": [
+          "end-to-end 실제 테스트 (Google Calendar 일정 생성 확인)"
+        ]
+      }
+    }
+  }
+}

@@ -1,24 +1,39 @@
 {
   "manifest_version": 3,
-  "name": "etl-calendar myetl 수집",
-  "version": "0.1.0",
-  "description": "로그인된 myetl 탭에서 과제·퀴즈를 수집해 etl-calendar로 보냅니다.",
-  "permissions": ["storage", "activeTab"],
+  "name": "eTL → Google Calendar",
+  "version": "0.2.0",
+  "description": "myetl에 이미 로그인된 탭에서 과제·퀴즈를 수집해 Google 캘린더에 동기화합니다.",
+  "permissions": ["storage", "activeTab", "tabs"],
   "host_permissions": [
     "https://myetl.snu.ac.kr/*",
     "http://127.0.0.1/*",
-    "http://localhost/*"
+    "http://localhost/*",
+    "https://*.onrender.com/*"
   ],
-  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "optional_host_permissions": ["https://*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "etl-calendar"
+    "default_title": "eTL → Google Calendar",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "content_scripts": [
     {
       "matches": ["https://myetl.snu.ac.kr/*"],
       "js": ["lib/myetl-collect.js", "content-bridge.js"],
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["lib/myetl-collect.js"],
+      "matches": ["https://myetl.snu.ac.kr/*"]
     }
   ]
 }

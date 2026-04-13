@@ -2,64 +2,164 @@
 <html lang="ko">
   <head>
     <meta charset="utf-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-src https://myetl.snu.ac.kr https://*.snu.ac.kr" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-src https://myetl.snu.ac.kr https://*.snu.ac.kr; connect-src 'self' http://127.0.0.1:* http://localhost:* https://*.onrender.com https://" />
     <title>etl-calendar 데스크톱</title>
     <style>
+      :root {
+        --primary: #003876;
+        --bg: #f5f7fb;
+        --surface: #ffffff;
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --muted: #64748b;
+        --shadow: 0 1px 2px rgba(0,56,118,0.04), 0 8px 24px rgba(15,23,42,0.06);
+      }
       body {
         margin: 0;
-        font-family: system-ui, sans-serif;
+        font-family: -apple-system, "Pretendard", "Noto Sans KR", system-ui, sans-serif;
         display: flex;
         flex-direction: column;
         height: 100vh;
-      }
-      #bar {
-        padding: 10px 12px;
-        border-bottom: 1px solid #ddd;
-        background: #fafafa;
-      }
-      #bar label {
-        display: block;
-        font-size: 12px;
-        margin-top: 6px;
-      }
-      #bar input {
-        width: min(520px, 95vw);
-        box-sizing: border-box;
-      }
-      #bar button {
-        margin-top: 8px;
-        margin-right: 8px;
-      }
-      #hint {
-        font-size: 12px;
-        color: #555;
-        margin-top: 6px;
+        background: var(--bg);
+        color: var(--text);
       }
       webview {
         flex: 1;
         width: 100%;
         border: 0;
+        background: #fff;
+      }
+      #bar {
+        border-top: 1px solid var(--border);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+        padding: 12px;
+      }
+      #bar-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+      #title {
+        font-weight: 700;
+        font-size: 13px;
+        color: var(--text);
+      }
+      #login-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #f1f5f9;
+        border: 1px solid var(--border);
+        font-size: 12px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      #dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #94a3b8;
+      }
+      #grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: 10px;
+        align-items: end;
+      }
+      #bar label {
+        display: block;
+        font-size: 11px;
+        color: var(--muted);
+        margin-bottom: 5px;
+      }
+      #bar input {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 10px;
+        font-size: 13px;
+        outline: none;
+      }
+      #bar input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(0,56,118,0.12);
+      }
+      #sync {
+        height: 42px;
+        padding: 0 14px;
+        border-radius: 12px;
+        border: 0;
+        background: var(--primary);
+        color: #fff;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      #sync:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      #hint {
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+      @media (max-width: 860px) {
+        #grid { grid-template-columns: 1fr; }
+        #sync { width: 100%; }
       }
     </style>
   </head>
   <body>
-    <div id="bar">
-      <strong>myetl (세션 유지: persist:etlcal)</strong>
-      <label>API 베이스</label>
-      <input id="api" type="text" placeholder="http://127.0.0.1:8000" />
-      <label>JWT</label>
-      <input id="jwt" type="password" autocomplete="off" />
-      <button type="button" id="sync">수집 후 Google 동기화</button>
-      <div id="hint">
-        아래 WebView에서 MFA까지 한 번 로그인한 뒤, 위 버튼으로 서버에 전송합니다. (서버 Selenium 불필요)
-      </div>
-    </div>
     <webview
       id="wv"
       src="https://myetl.snu.ac.kr/"
       partition="persist:etlcal"
       allowpopups
     ></webview>
+    <div id="bar">
+      <div id="bar-top">
+        <div id="title">myetl WebView (세션 유지: <code>persist:etlcal</code>)</div>
+        <div id="login-pill"><span id="dot"></span><span id="login-text">로그인 확인 중…</span></div>
+      </div>
+      <!-- 서버 로그인 (JWT 자동 취득) -->
+      <div id="login-form" style="display:none; margin-bottom:10px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:end;">
+          <div>
+            <label for="inp-email">이메일</label>
+            <input id="inp-email" type="email" placeholder="name@email.com" autocomplete="username" />
+          </div>
+          <div>
+            <label for="inp-pass">비밀번호</label>
+            <input id="inp-pass" type="password" autocomplete="current-password" />
+          </div>
+          <button type="button" id="btn-login" style="height:42px; padding:0 14px; border-radius:12px; border:0; background:#003876; color:#fff; font-weight:700; cursor:pointer;">
+            로그인
+          </button>
+        </div>
+      </div>
+
+      <div id="grid">
+        <div>
+          <label for="api">서버 주소</label>
+          <input id="api" type="text" placeholder="https://etl-calendar-sync.onrender.com" />
+        </div>
+        <div id="jwt-wrap">
+          <label for="jwt">JWT <span id="jwt-status" style="color:#22c55e; font-size:10px;"></span></label>
+          <input id="jwt" type="password" autocomplete="off" placeholder="로그인하면 자동 입력됩니다" />
+        </div>
+        <button type="button" id="sync" disabled>📅 동기화</button>
+      </div>
+      <div id="hint">
+        ① myetl 로그인(MFA 포함)을 위 화면에서 완료 → ② 서버 로그인 → ③ 동기화 버튼 클릭
+      </div>
+    </div>
     <script src="renderer.js"></script>
   </body>
 </html>

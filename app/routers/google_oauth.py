@@ -1,4 +1,5 @@
 import json
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -12,6 +13,8 @@ from app.google_oauth_client import load_google_oauth_client_dict
 from app.models import User
 from app.security import create_google_oauth_state, decode_google_oauth_state, encrypt_text
 from calendar_service import SCOPES
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -78,9 +81,18 @@ def google_callback(
         scopes=SCOPES,
         redirect_uri=settings.google_redirect_uri,
     )
+    # Render 등 HTTPS 프록시 환경: uvicorn이 내부적으로 http://로 보더라도
+    # Google이 돌려보낸 URL은 https://여야 하므로 스킴을 보정한다.
+    callback_url = str(request.url)
+    forwarded_proto = request.headers.get("x-forwarded-proto", "")
+    if forwarded_proto == "https" and callback_url.startswith("http://"):
+        callback_url = "https://" + callback_url[7:]
+    elif settings.google_redirect_uri.startswith("https://") and callback_url.startswith("http://"):
+        callback_url = "https://" + callback_url[7:]
     try:
-        flow.fetch_token(authorization_response=str(request.url))
-    except Exception:
+        flow.fetch_token(authorization_response=callback_url)
+    except Exception as exc:
+        logger.error("Google OAuth token fetch 실패 | url=%s | error=%s", callback_url, exc)
         return RedirectResponse(url="/?google=token_error", status_code=302)
 
     user = db.get(User, user_id)
