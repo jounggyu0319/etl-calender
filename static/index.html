@@ -377,8 +377,8 @@
       hideBanner();
     }
 
-    async function refreshMe() {
-      hideBanner();
+    async function refreshMe({ keepBanner = false } = {}) {
+      if (!keepBanner) hideBanner();
       if (!token()) {
         $("dash").style.display = "none";
         $("dash").classList.add("hidden");
@@ -698,8 +698,10 @@
     const q = new URLSearchParams(location.search);
     const g = q.get("google");
     if (g === "connected") {
-      showBanner("ok", "Google Calendar 연결이 완료되었습니다.");
       history.replaceState({}, "", "/");
+      await refreshMe({ keepBanner: false });
+      showBanner("ok", "Google Calendar 연결이 완료되었습니다.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } else if (g) {
       const oauthErr =
         g === "no_client"
@@ -717,11 +719,13 @@
                     : g === "save_error"
                       ? "Google 토큰 저장에 실패했습니다. 서버 로그를 확인해 주세요."
                       : "Google 연결 중 문제가 있었습니다. 잠시 후 다시 시도해 주세요.";
-      showBanner("err", oauthErr);
       history.replaceState({}, "", "/");
+      await refreshMe({ keepBanner: true });
+      showBanner("err", oauthErr);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
-    refreshMe();
+    if (!g) refreshMe();
   </script>
 </body>
 </html>
