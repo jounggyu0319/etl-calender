@@ -519,11 +519,21 @@
 
     $("btn-google").onclick = async () => {
       hideBanner();
+      $("btn-google").disabled = true;
+      $("btn-google").textContent = "연결 중…";
       try {
-        const { authorization_url } = await api("/api/oauth/google/authorize");
-        window.location.href = authorization_url;
+        const data = await api("/api/oauth/google/authorize");
+        const url = data && data.authorization_url;
+        if (!url) throw new Error("authorization_url 이 응답에 없습니다.");
+        window.location.href = url;
       } catch (e) {
-        showBanner("err", e.message || "Google 연결을 시작할 수 없습니다.");
+        const msg = e.message || "Google 연결을 시작할 수 없습니다.";
+        showBanner("err", msg);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        console.error("[Google OAuth]", msg);
+      } finally {
+        $("btn-google").disabled = false;
+        $("btn-google").textContent = "Google 계정 연결";
       }
     };
 
