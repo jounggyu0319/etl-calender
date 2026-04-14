@@ -46,10 +46,12 @@ def validate_moodle_calendar_feed_url(raw: str) -> str:
         and "export.php" not in p
         and "/ical" not in p
         and "export" not in p
+        and "/feeds/" not in p
+        and p.endswith(".ics") is False
     ):
         raise ValueError(
             "캘린더 «URL 주소 가져오기» 링크인지 확인해 주세요. "
-            "경로에 보통 `calendar/export.php`, `calendar/export_execute.php`, 혹은 `ical` 이 포함됩니다. "
+            "경로에 보통 `calendar/export.php`, `calendar/export_execute.php`, `/feeds/`, 혹은 `.ics` 가 포함됩니다. "
             "캘린더 화면만(`.../calendar`) 복사하면 HTML이 내려와 동기화되지 않습니다."
         )
     return u
