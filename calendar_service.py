@@ -305,7 +305,8 @@ def _insert_assignment_calendar_event(service, assignment: dict, etl_id: str) ->
     try:
         service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
         return True
-    except Exception:
+    except Exception as exc:
+        _CAL_LOG.exception("Calendar event insert 실패 (etl_id=%s): %s", etl_id, exc)
         return False
 
 
