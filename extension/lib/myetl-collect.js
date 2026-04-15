@@ -66,6 +66,13 @@
     return null;
   }
 
+  /** Canvas는 JSON 하이재킹 방지를 위해 응답 앞에 while(1); 를 붙임 — 제거 후 파싱 */
+  async function canvasJson(r) {
+    const text = await r.text();
+    const body = text.startsWith("while(1);") ? text.slice("while(1);".length) : text;
+    return JSON.parse(body);
+  }
+
   async function fetchAllPages(firstUrl, delayMs) {
     const rows = [];
     let url = firstUrl;
@@ -74,7 +81,7 @@
       const r = await fetch(url, { credentials: "include", cache: "no-store" });
       if (r.status === 404) return rows;
       if (!r.ok) throw new Error(`HTTP ${r.status} — ${url}`);
-      const chunk = await r.json();
+      const chunk = await canvasJson(r);
       if (!Array.isArray(chunk)) break;
       rows.push(...chunk);
       url = parseNextFromLink(r.headers.get("Link"));
