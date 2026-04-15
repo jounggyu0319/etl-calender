@@ -77,6 +77,38 @@
     return [...found.values()];
   }
 
+  // ── Moodle AJAX API ──────────────────────────────────────────
+  /**
+   * Moodle 내장 AJAX로 수강 강의 목록 조회.
+   * M.cfg (모든 Moodle 페이지에 존재) → sesskey + userId 사용.
+   */
+  async function fetchCoursesViaApi(origin) {
+    try {
+      const cfg = typeof M !== "undefined" && M.cfg ? M.cfg : null;
+      if (!cfg || !cfg.sesskey || !cfg.userId) return [];
+
+      const res = await fetch(`${origin}/lib/ajax/service.php?sesskey=${cfg.sesskey}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify([{
+          index: 0,
+          methodname: "core_enrol_get_users_courses",
+          args: { userid: cfg.userId },
+        }]),
+      });
+      if (!res.ok) return [];
+      const json = await res.json();
+      const data = json?.[0]?.data;
+      if (!Array.isArray(data)) return [];
+      return data
+        .filter((c) => c.id && c.fullname)
+        .map((c) => ({ url: `${origin}/course/view.php?id=${c.id}`, name: c.fullname }));
+    } catch {
+      return [];
+    }
+  }
+
   // ── fetch helper ─────────────────────────────────────────────
   /** @returns {Promise<string|null>} 404면 null, 그 외 비정상은 throw */
   async function fetchText(url) {
@@ -103,10 +135,15 @@
         ? location.origin
         : "https://myetl.snu.ac.kr";
 
-    // 1) 현재 페이지 DOM에서 강의 링크 추출 (네트워크 요청 없음)
-    let courses = typeof document !== "undefined" ? parseCoursesFromDoc(document) : [];
+    // 1) Moodle AJAX API — 가장 신뢰할 수 있는 방법
+    let courses = await fetchCoursesViaApi(origin);
 
-    // 2) 현재 페이지에 강의 없으면 네트워크 폴백
+    // 2) 현재 페이지 DOM 파싱 (JavaScript 렌더링 전 정적 링크만 잡힘)
+    if (courses.length === 0 && typeof document !== "undefined") {
+      courses = parseCoursesFromDoc(document);
+    }
+
+    // 3) 네트워크 폴백
     if (courses.length === 0) {
       for (const path of ["/my/", "/dashboard", "/course/"]) {
         try {
@@ -122,12 +159,8 @@
     }
 
     if (courses.length === 0) {
-      // 캘린더 페이지는 강의 링크가 없음 → 안내 메시지 특화
-      const isCalendar = typeof location !== "undefined" && location.pathname.includes("/calendar");
       return {
-        error: isCalendar
-          ? "캘린더 페이지에서는 강의 목록을 찾을 수 없습니다. 강의 페이지(과목 클릭)로 이동 후 다시 시도해주세요."
-          : "강의 목록을 찾을 수 없습니다. myetl에 로그인 후 강의 페이지에서 시도해주세요.",
+        error: "강의 목록을 찾을 수 없습니다. myetl에 로그인되어 있는지 확인해주세요.",
         items: [],
         courses: 0,
       };
