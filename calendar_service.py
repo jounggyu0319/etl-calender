@@ -241,7 +241,7 @@ def calendar_event_exists_with_etl_id(service, etl_id: str) -> bool:
         return False
 
 
-def add_assignment_to_calendar(service, assignment: dict) -> bool:
+def _insert_assignment_calendar_event(service, assignment: dict, etl_id: str) -> bool:
     deadline = parse_deadline(assignment.get("deadline"))
     kind = assignment.get("activity_type") or "assign"
     if kind == "quiz":
@@ -262,10 +262,6 @@ def add_assignment_to_calendar(service, assignment: dict) -> bool:
     else:
         label = "과제"
         desc_kind = "eTL 과제"
-
-    etl_id = _etl_id_for_calendar(assignment)
-    if calendar_event_exists_with_etl_id(service, etl_id):
-        return True
 
     if not deadline:
         today = datetime.now(SEOUL).strftime("%Y-%m-%d")
@@ -306,9 +302,24 @@ def add_assignment_to_calendar(service, assignment: dict) -> bool:
         return False
 
 
+def add_assignment_to_calendar(service, assignment: dict) -> bool:
+    etl_id = _etl_id_for_calendar(assignment)
+    if calendar_event_exists_with_etl_id(service, etl_id):
+        return True
+    return _insert_assignment_calendar_event(service, assignment, etl_id)
+
+
+def insert_assignment_calendar_if_absent(service, assignment: dict) -> bool:
+    """동일 etl_id 일정이 Google에 없을 때만 insert. 새로 만든 경우에만 True."""
+    etl_id = _etl_id_for_calendar(assignment)
+    if calendar_event_exists_with_etl_id(service, etl_id):
+        return False
+    return _insert_assignment_calendar_event(service, assignment, etl_id)
+
+
 def sync_assignments_to_calendar(service, assignments: list[dict]) -> int:
     ok = 0
     for a in assignments:
-        if add_assignment_to_calendar(service, a):
+        if insert_assignment_calendar_if_absent(service, a):
             ok += 1
     return ok

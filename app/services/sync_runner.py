@@ -1,4 +1,3 @@
-import json
 import time
 
 from sqlalchemy.orm import Session
@@ -13,7 +12,7 @@ from app.services.etl_session_holder import store as etl_driver_store
 from app.etl_types import CollectResult
 from app.services.moodle_ics import fetch_moodle_calendar_ics, ical_to_assignment_items
 from app.services.sync_progress import clear_progress, set_progress
-from calendar_service import add_assignment_to_calendar, ensure_calendar_service, sync_assignments_to_calendar
+from calendar_service import ensure_calendar_service, insert_assignment_calendar_if_absent, sync_assignments_to_calendar
 
 
 def _etl_scraper():
@@ -26,16 +25,6 @@ def _etl_scraper():
             "`pip install -r requirements-dev.txt` 로 selenium 을 설치하세요."
         ) from e
     return m
-
-
-def _seen_set(user: User) -> set[str]:
-    try:
-        data = json.loads(user.seen_assignment_ids or "[]")
-        if not isinstance(data, list):
-            return set()
-        return {str(x) for x in data}
-    except json.JSONDecodeError:
-        return set()
 
 
 def _diag(
@@ -75,10 +64,9 @@ def _diag(
 def _ical_merge_only(
     user: User,
     settings: Settings,
-    merged_seen: set[str],
     google_json: str,
-) -> tuple[set[str], str, bool, int, str | None, bool, bool | None]:
-    """iCal 구독만 반영. DB는 건드리지 않고 merged_seen·google_json을 갱신.
+) -> tuple[str, bool, int, str | None, bool, bool | None]:
+    """iCal 구독만 반영. google_json(토큰 갱신 시)만 갱신해 반환.
 
     반환 마지막 두 값: (ical_feed_configured, ical_sync_ok)
     - ical_feed_configured: 구독 URL이 비어 있지 않음
@@ -91,7 +79,7 @@ def _ical_merge_only(
     if user.moodle_calendar_feed_enc:
         feed_plain = (decrypt_text(user.moodle_calendar_feed_enc, settings) or "").strip()
     if not feed_plain:
-        return merged_seen, google_json, google_changed, ics_created_total, ics_err, False, None
+        return google_json, google_changed, ics_created_total, ics_err, False, None
     ical_ok: bool | None = True
     try:
         ics_body = fetch_moodle_calendar_ics(feed_plain)
@@ -101,17 +89,15 @@ def _ical_merge_only(
                 "구독 ICS에 이벤트는 있으나, 반복 일정(RRULE)이거나 시작일시(DTSTART)가 없어 "
                 "이 앱에서 Google로 넣을 항목이 없습니다."
             )
-        fresh = [it for it in items if it["id"] not in merged_seen]
-        if fresh:
+        if items:
             service, gj = ensure_calendar_service(google_json)
-            for it in fresh:
-                if add_assignment_to_calendar(service, it):
+            for it in items:
+                if insert_assignment_calendar_if_absent(service, it):
                     ics_created_total += 1
-                    merged_seen.add(it["id"])
             if ics_created_total == 0:
                 hint = (
                     "Google Calendar에 새 일정을 추가하지 못했습니다. "
-                    "OAuth 연결(캘린더 쓰기 권한)·API 오류·중복일 수 있습니다."
+                    "OAuth 연결(캘린더 쓰기 권한)·API 오류·이미 동일 etl_id 일정이 있을 수 있습니다."
                 )
                 ics_err = f"{ics_err} {hint}" if ics_err else hint
             if gj != google_json:
@@ -120,18 +106,16 @@ def _ical_merge_only(
     except Exception as e:
         ics_err = str(e)
         ical_ok = False
-    return merged_seen, google_json, google_changed, ics_created_total, ics_err, True, ical_ok
+    return google_json, google_changed, ics_created_total, ics_err, True, ical_ok
 
 
-def _commit_seen_and_google_with_settings(
+def _commit_user_google_maybe(
     db: Session,
     user: User,
     settings: Settings,
-    merged_seen: set[str],
     google_json: str,
     google_changed: bool,
 ) -> None:
-    user.seen_assignment_ids = json.dumps(sorted(merged_seen), ensure_ascii=False)
     if google_changed:
         user.google_creds_enc = encrypt_text(google_json, settings)
     db.add(user)
@@ -143,7 +127,6 @@ def _apply_etl_collect_report(
     user: User,
     settings: Settings,
     report: CollectResult,
-    merged_seen: set[str],
     google_json: str,
     google_changed: bool,
     ics_created_total: int,
@@ -159,7 +142,6 @@ def _apply_etl_collect_report(
         if report.new_items:
             service, fresh_google_json = ensure_calendar_service(google_json)
             created = sync_assignments_to_calendar(service, report.new_items)
-            user.seen_assignment_ids = json.dumps(sorted(report.updated_seen), ensure_ascii=False)
             if fresh_google_json != google_json:
                 user.google_creds_enc = encrypt_text(fresh_google_json, settings)
             db.add(user)
@@ -182,7 +164,7 @@ def _apply_etl_collect_report(
                 ical_sync_attempted=ical_sync_attempted,
                 ical_sync_ok=ical_sync_ok,
             )
-        _commit_seen_and_google_with_settings(db, user, settings, merged_seen, google_json, google_changed)
+        _commit_user_google_maybe(db, user, settings, google_json, google_changed)
         msg = str(report.collect_failed_note)
         if ics_created_total:
             msg = f"(iCal {ics_created_total}건은 이미 반영했습니다.) " + msg
@@ -201,7 +183,7 @@ def _apply_etl_collect_report(
         )
 
     if not report.login_ok:
-        _commit_seen_and_google_with_settings(db, user, settings, merged_seen, google_json, google_changed)
+        _commit_user_google_maybe(db, user, settings, google_json, google_changed)
         msg = "eTL 로그인에 실패했습니다."
         if report.login_note:
             msg += " " + str(report.login_note)
@@ -222,7 +204,7 @@ def _apply_etl_collect_report(
         )
 
     if report.courses_found == 0 and course_list_scanned:
-        _commit_seen_and_google_with_settings(db, user, settings, merged_seen, google_json, google_changed)
+        _commit_user_google_maybe(db, user, settings, google_json, google_changed)
         msg = "⚠️ 강의를 찾지 못했어요. 먼저 eTL 로그인을 해주세요."
         if ics_err:
             msg = f"(iCal 오류: {ics_err}) " + msg
@@ -243,7 +225,7 @@ def _apply_etl_collect_report(
         and report.quiz_links_found == 0
         and report.announcement_keyword_hits == 0
     ):
-        _commit_seen_and_google_with_settings(db, user, settings, merged_seen, google_json, google_changed)
+        _commit_user_google_maybe(db, user, settings, google_json, google_changed)
         msg = "과제·퀴즈 링크와 중간/기말 공지 키워드를 찾지 못했습니다."
         if ics_err:
             msg = f"(iCal 오류: {ics_err}) " + msg
@@ -260,12 +242,8 @@ def _apply_etl_collect_report(
         )
 
     if not report.new_items:
-        user.seen_assignment_ids = json.dumps(sorted(report.updated_seen), ensure_ascii=False)
-        if google_changed:
-            user.google_creds_enc = encrypt_text(google_json, settings)
-        db.add(user)
-        db.commit()
-        msg = "새 항목이 없습니다. (이미 동기화된 과제·퀴즈·공지 언급 URL/해시는 제외됩니다)"
+        _commit_user_google_maybe(db, user, settings, google_json, google_changed)
+        msg = "새 항목이 없습니다. (Google 캘린더에 동일 etl_id 일정이 있으면 다시 넣지 않습니다)"
         if ics_err:
             msg = f"(iCal 오류: {ics_err}) " + msg
         return _diag(
@@ -283,7 +261,6 @@ def _apply_etl_collect_report(
     service, fresh_google_json = ensure_calendar_service(google_json)
     created = sync_assignments_to_calendar(service, report.new_items)
 
-    user.seen_assignment_ids = json.dumps(sorted(report.updated_seen), ensure_ascii=False)
     if fresh_google_json != google_json:
         user.google_creds_enc = encrypt_text(fresh_google_json, settings)
 
@@ -329,21 +306,19 @@ def run_user_sync(
             login_note=None,
         )
 
-    merged_seen = _seen_set(user)
     (
-        merged_seen,
         google_json,
         google_changed,
         ics_created_total,
         ics_err,
         ical_feed_configured,
         ical_sync_ok,
-    ) = _ical_merge_only(user, settings, merged_seen, google_json)
+    ) = _ical_merge_only(user, settings, google_json)
     ical_sync_attempted = ical_feed_configured
 
     has_canvas = bool(user.canvas_token_enc)
 
-    _commit_seen_and_google_with_settings(db, user, settings, merged_seen, google_json, google_changed)
+    _commit_user_google_maybe(db, user, settings, google_json, google_changed)
     ok_report = CollectResult(login_ok=True)
     parts: list[str] = []
     if ics_err:
@@ -472,18 +447,16 @@ def run_etl_continue_sync(
             login_note=None,
         )
 
-    merged_seen = _seen_set(user)
     (
-        merged_seen,
         google_json,
         google_changed,
         ics_created_total,
         ics_err,
         ical_feed_configured,
         ical_sync_ok,
-    ) = _ical_merge_only(user, settings, merged_seen, google_json)
+    ) = _ical_merge_only(user, settings, google_json)
     ical_sync_attempted = ical_feed_configured
-    _commit_seen_and_google_with_settings(db, user, settings, merged_seen, google_json, google_changed)
+    _commit_user_google_maybe(db, user, settings, google_json, google_changed)
 
     headed_pause = 0.0 if settings.etl_headless else float(settings.etl_headed_pause_sec)
     report: CollectResult | None = None
@@ -505,7 +478,6 @@ def run_etl_continue_sync(
                 user,
                 settings,
                 report,
-                merged_seen,
                 google_json,
                 google_changed,
                 ics_created_total,
@@ -516,17 +488,18 @@ def run_etl_continue_sync(
                 ical_sync_ok=ical_sync_ok,
             )
 
+        session_seen: set[str] = set()
         try:
             report = sc.collect_etl_activities_with_existing_driver(
                 driver,
-                merged_seen,
+                session_seen,
                 sync_deadline=time.monotonic() + sc.SYNC_MAX_SEC,
                 progress_cb=lambda d: set_progress(user.id, running=True, **d),
             )
         except Exception as e:
             report = CollectResult(
                 login_ok=True,
-                updated_seen=set(merged_seen),
+                updated_seen=set(session_seen),
                 collect_failed_note=f"수집 중 오류가 발생했습니다: {e}",
             )
         return _apply_etl_collect_report(
@@ -534,7 +507,6 @@ def run_etl_continue_sync(
             user,
             settings,
             report,
-            merged_seen,
             google_json,
             google_changed,
             ics_created_total,

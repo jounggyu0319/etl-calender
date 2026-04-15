@@ -13,9 +13,8 @@ from app.db import SessionLocal
 from app.models import User
 from app.security import decrypt_text
 from app.services.sync_runner import (
-    _commit_seen_and_google_with_settings,
+    _commit_user_google_maybe,
     _ical_merge_only,
-    _seen_set,
 )
 
 logger = logging.getLogger(__name__)
@@ -50,19 +49,17 @@ def run_auto_sync_for_user(db: Session, user: User, settings: Settings) -> None:
         logger.debug("auto_sync skip user_id=%s: no Moodle iCal URL", user.id)
         return
 
-    merged_seen = _seen_set(user)
     (
-        merged_seen,
         google_json,
         google_changed,
         _ics_created,
         ics_err,
         _cfg,
         _ok,
-    ) = _ical_merge_only(user, settings, merged_seen, google_json)
+    ) = _ical_merge_only(user, settings, google_json)
 
     user.last_auto_sync_at = datetime.now(timezone.utc)
-    _commit_seen_and_google_with_settings(db, user, settings, merged_seen, google_json, google_changed)
+    _commit_user_google_maybe(db, user, settings, google_json, google_changed)
     if ics_err:
         logger.warning("auto_sync user_id=%s iCal note: %s", user.id, ics_err)
 

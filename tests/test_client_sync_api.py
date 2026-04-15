@@ -88,15 +88,16 @@ class TestImportFromClient(unittest.TestCase):
         finally:
             db.close()
 
-    @patch("app.services.client_sync.add_assignment_to_calendar", return_value=True)
+    @patch("app.services.client_sync.insert_assignment_calendar_if_absent")
     @patch("app.services.client_sync.ensure_calendar_service")
-    def test_inserts_and_dedupes_seen(
-        self, mock_ensure: MagicMock, mock_add: MagicMock
+    def test_inserts_and_second_sync_skips_duplicate_in_calendar(
+        self, mock_ensure: MagicMock, mock_insert: MagicMock
     ) -> None:
         mock_ensure.return_value = (
             MagicMock(),
             '{"token": "stub", "refresh_token": "stub"}',
         )
+        mock_insert.side_effect = [True, False]
         settings = get_settings()
         db = SessionLocal()
         try:
@@ -118,12 +119,13 @@ class TestImportFromClient(unittest.TestCase):
             r = import_from_client(db, user, settings, [item])
             self.assertEqual(r.new_assignments, 1)
             self.assertEqual(r.calendar_events_created, 1)
-            mock_add.assert_called_once()
+            mock_insert.assert_called_once()
 
             db.refresh(user)
             r2 = import_from_client(db, user, settings, [item])
-            self.assertEqual(r2.new_assignments, 0)
+            self.assertEqual(r2.new_assignments, 1)
             self.assertEqual(r2.calendar_events_created, 0)
+            self.assertEqual(mock_insert.call_count, 2)
         finally:
             db.close()
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from typing import Any
@@ -15,21 +14,11 @@ from app.models import User
 from app.schemas import SyncResult
 from app.security import decrypt_text, encrypt_text
 from app.snu_academic_calendar import due_at_in_active_window
-from calendar_service import add_assignment_to_calendar, ensure_calendar_service
+from calendar_service import ensure_calendar_service, insert_assignment_calendar_if_absent
 
 logger = logging.getLogger(__name__)
 
 MYETL_CANVAS_BASE = "https://myetl.snu.ac.kr"
-
-
-def _seen_set(user: User) -> set[str]:
-    try:
-        data = json.loads(user.seen_assignment_ids or "[]")
-        if not isinstance(data, list):
-            return set()
-        return {str(x) for x in data}
-    except json.JSONDecodeError:
-        return set()
 
 
 def _parse_next_link(link_header: str | None) -> str | None:
@@ -143,7 +132,6 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
             canvas_server_context=True,
         )
 
-    merged_seen = _seen_set(user)
     fresh: list[dict[str, Any]] = []
     assign_n = quiz_n = 0
 
@@ -179,8 +167,6 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
             aid = int(aid_raw)
             included_assign_ids.add(aid)
             eid = f"canvas-{cid}-assign-{aid}"
-            if eid in merged_seen:
-                continue
             fresh.append(
                 {
                     "id": eid,
@@ -206,8 +192,6 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
                 continue
             qid = int(qid_raw)
             eid = f"canvas-{cid}-quiz-{qid}"
-            if eid in merged_seen:
-                continue
             fresh.append(
                 {
                     "id": eid,
@@ -226,7 +210,8 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
             new_assignments=0,
             calendar_events_created=0,
             ics_events_created=0,
-            message="현재 학기 기준으로 새로 반영할 과제·퀴즈가 없거나 이미 동기화된 ID입니다.",
+            message="현재 학기 기준으로 새로 반영할 과제·퀴즈가 없습니다. "
+            "(기간 필터에 걸리지 않았거나 Google 캘린더에 동일 일정이 이미 있을 수 있습니다.)",
             login_ok=True,
             courses_found=len(courses),
             assign_links_found=assign_n,
@@ -240,11 +225,9 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
     service, fresh_google_json = ensure_calendar_service(google_json)
     created = 0
     for it in fresh:
-        if add_assignment_to_calendar(service, it):
+        if insert_assignment_calendar_if_absent(service, it):
             created += 1
-            merged_seen.add(it["id"])
 
-    user.seen_assignment_ids = json.dumps(sorted(merged_seen), ensure_ascii=False)
     if fresh_google_json != google_json:
         user.google_creds_enc = encrypt_text(fresh_google_json, settings)
     db.add(user)

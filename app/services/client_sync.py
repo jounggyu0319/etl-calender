@@ -1,12 +1,10 @@
 """브라우저·데스크톱 클라이언트가 myetl 세션으로 수집한 과제 목록을 Google 캘린더에 반영.
 
-Google 일정 중복 방지는 `calendar_service.add_assignment_to_calendar`의
-`extendedProperties.private.etl_id` 조회로 처리합니다(`seen_assignment_ids`는 보조).
+Google 일정 중복 방지는 `calendar_service.insert_assignment_calendar_if_absent`가
+`extendedProperties.private.etl_id` 로 Google Calendar API를 조회해 판단합니다.
 """
 
 from __future__ import annotations
-
-import json
 
 from sqlalchemy.orm import Session
 
@@ -14,17 +12,7 @@ from app.config import Settings
 from app.models import User
 from app.schemas import ClientSyncItem, SyncResult
 from app.security import decrypt_text, encrypt_text
-from calendar_service import add_assignment_to_calendar, ensure_calendar_service
-
-
-def _seen_set(user: User) -> set[str]:
-    try:
-        data = json.loads(user.seen_assignment_ids or "[]")
-        if not isinstance(data, list):
-            return set()
-        return {str(x) for x in data}
-    except json.JSONDecodeError:
-        return set()
+from calendar_service import ensure_calendar_service, insert_assignment_calendar_if_absent
 
 
 def import_from_client(
@@ -48,12 +36,11 @@ def import_from_client(
             login_note=None,
         )
 
-    merged_seen = _seen_set(user)
     fresh: list[dict] = []
     for row in items:
         d = row.model_dump()
         aid = str(d.get("id") or "").strip()
-        if not aid or aid in merged_seen:
+        if not aid:
             continue
         fresh.append(
             {
@@ -80,7 +67,7 @@ def import_from_client(
             new_assignments=0,
             calendar_events_created=0,
             ics_events_created=0,
-            message="전송된 항목이 없거나 모두 이미 동기화된 ID입니다.",
+            message="전송된 항목이 없습니다.",
             login_ok=True,
             courses_found=len(course_subjects),
             assign_links_found=assign_n,
@@ -92,11 +79,9 @@ def import_from_client(
     service, fresh_google_json = ensure_calendar_service(google_json)
     created = 0
     for a in fresh:
-        if add_assignment_to_calendar(service, a):
+        if insert_assignment_calendar_if_absent(service, a):
             created += 1
-            merged_seen.add(a["id"])
 
-    user.seen_assignment_ids = json.dumps(sorted(merged_seen), ensure_ascii=False)
     if fresh_google_json != google_json:
         user.google_creds_enc = encrypt_text(fresh_google_json, settings)
     db.add(user)

@@ -1,7 +1,7 @@
 {
   "version": "2.1.4",
   "project": "etl-calendar",
-  "activeFeature": "remove-etl-credentials",
+  "activeFeature": "remove-seen-assignment-ids",
   "phase": "act",
   "iteration": 1,
   "lastUpdated": "2026-04-15",
@@ -86,6 +86,18 @@
         "✅ schemas·serializers·routers/me: EtlCredentialsUpdate·PATCH /api/me/etl·UserOut has_etl_credentials 제거",
         "✅ sync_runner: 저장 자격증명 미참조, prepare 조기 안내, continue 메시지 정리",
         "✅ static/index.html: eTL 폼·로그인 버튼·has_etl_credentials·Selenium 진행 폴링 제거, 전체 동기화는 Canvas만"
+      ]
+    },
+    "remove-seen-assignment-ids": {
+      "phase": "act",
+      "status": "done",
+      "problem": "DB seen_assignment_ids로 스킵하면 사용자가 Google에서 일정을 지워도 재추가되지 않음",
+      "solution": "extendedProperties.private.etl_id 기준 Google Calendar API 조회만으로 중복 판단",
+      "tasks": [
+        "✅ calendar_service: insert_assignment_calendar_if_absent + sync_assignments 실제 insert 건만 집계",
+        "✅ models: seen_assignment_ids 필드 제거(DB DROP 없음)",
+        "✅ client_sync / canvas_sync / sync_runner / auto_sync: seen_* 제거, iCal·Canvas는 전 후보에 대해 etl_id 조회",
+        "✅ tests/test_client_sync_api: mock 경로·2차 동기화 기대값 갱신"
       ]
     },
     "auto-sync": {

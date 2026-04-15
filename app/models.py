@@ -27,8 +27,6 @@ class User(Base):
     # myetl Canvas «새 액세스 토큰» (서버에서 REST API 호출용, 암호화 저장)
     canvas_token_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    seen_assignment_ids: Mapped[str] = mapped_column(Text, default="[]")
-
     auto_sync_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     auto_sync_interval_hours: Mapped[int] = mapped_column(Integer, default=24)
     last_auto_sync_at: Mapped[datetime | None] = mapped_column(
