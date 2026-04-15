@@ -119,6 +119,16 @@
     return true;
   }
 
+  /** HTML 태그·엔티티 제거 → 평문 텍스트 */
+  function stripHtml(html) {
+    if (!html) return "";
+    return html
+      .replace(/<[^>]*>/g, " ")
+      .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+      .replace(/&nbsp;/g, " ").replace(/&#\d+;/g, " ")
+      .replace(/\s+/g, " ").trim();
+  }
+
   function parseNextFromLink(linkHeader) {
     if (!linkHeader) return null;
     const parts = linkHeader.split(",");
@@ -268,6 +278,8 @@
         if (!isPostedInActiveSemester(posted)) continue;
         const tid = topic.id;
         if (tid == null) continue;
+        // 본문에서 날짜 추출 시도 — 서버 parse_deadline()이 "4월 23일" 등을 인식
+        const bodyText = stripHtml(topic.message || "");
         items.push({
           id: `canvas-${cid}-announce-${tid}`,
           title,
@@ -276,9 +288,9 @@
             (topic.html_url || "").trim() ||
             `${origin}/courses/${cid}/discussion_topics/${tid}`,
           activity_type: "exam",
-          deadline: "",
+          deadline: bodyText.slice(0, 2000),   // parse_deadline이 날짜 추출, 없으면 posted_at fallback
           posted_at: posted || "",
-          description_extra: title,
+          description_extra: (bodyText || title).slice(0, 7900),
         });
       }
     }
