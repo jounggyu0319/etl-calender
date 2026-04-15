@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
 
+    gemini_api_key: str | None = None
+
     # eTL 동기화 시 Selenium 헤드리스. false면 브라우저 창이 보여 로그인 차단 여부 확인에 유리.
     etl_headless: bool = True
     # ETL_HEADLESS=false 일 때, 끝나고 driver.quit() 하기 전 대기(초). 창이 바로 사라지는 것을 완화.

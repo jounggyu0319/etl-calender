@@ -8,7 +8,11 @@ Google 일정 중복 방지는 `calendar_service.insert_assignment_calendar_if_a
 
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy.orm import Session
+
+_LOG = logging.getLogger(__name__)
 
 from app.config import Settings
 from app.models import User
@@ -19,6 +23,7 @@ from calendar_service import (
     insert_assignment_calendar_if_absent_v2,
     probe_calendar_access,
 )
+from app.services.gemini_classifier import is_exam_schedule_announcement
 
 
 def import_from_client(
@@ -121,10 +126,21 @@ def import_from_client(
             login_note="클라이언트 동기화",
         )
 
+    gemini_key = settings.gemini_api_key
     created = 0
     skipped = 0
     first_err: str | None = None
     for a in fresh:
+        # exam 타입 공지는 Gemini로 2차 검증 (자료·발표 공지 오인 방지)
+        if a.get("activity_type") == "exam":
+            if not is_exam_schedule_announcement(
+                a.get("title", ""),
+                a.get("description_extra", ""),
+                gemini_key,
+            ):
+                _LOG.info("Gemini: exam 아님, 스킵 → %s", a.get("title", "")[:50])
+                continue
+
         inserted, existed, err = insert_assignment_calendar_if_absent_v2(service, a)
         if inserted:
             created += 1
