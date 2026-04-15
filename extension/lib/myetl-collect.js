@@ -101,9 +101,9 @@
     if (t.includes("midterm") || t.includes("mid-term") || t.includes("mid term")) return "midterm";
     if (s.includes("중간")) return "midterm";
     if (s.includes("기말고사")) return "final";
-    if (t.includes("final exam")) return "final";
+    if (t.includes("final exam") || t.includes("final test") || t.includes("final examination")) return "final";
     if (s.includes("기말")) return "final";
-    if (/\bfinal\b/i.test(t)) return "final";
+    // "\bfinal\b" 단독은 너무 광범위 — "Final project/report/submission" 오인 방지
     if (s.includes("시험")) return "general";
     if (/\bexam\b/i.test(t)) return "general";
     if (/\btest\b/i.test(t)) return "general";
@@ -121,9 +121,12 @@
    */
   function announcementMatchesExamTitle(title) {
     const t = (title || "").trim();
-    // 자료·준비물 공지 — 시험 날짜와 무관 → 제외
-    const materialKeywords = ["대비용", "대비 문제", "기출", "연습문제", "올려드렸", "자료 올"];
-    if (materialKeywords.some((k) => t.includes(k))) return false;
+    // 자료·준비물·성적·결과 공지 — 시험 날짜와 무관 → 제외
+    const excludeKeywords = [
+      "대비용", "대비 문제", "기출", "연습문제", "올려드렸", "자료 올",
+      "성적", "결과", "레포트", "프로젝트", "project", "report",
+    ];
+    if (excludeKeywords.some((k) => t.toLowerCase().includes(k.toLowerCase()))) return false;
 
     if (!examKindFromTitle(t)) {
       if (/\btest\b/i.test(t.toLowerCase())) return true;

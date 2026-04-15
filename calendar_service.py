@@ -182,11 +182,26 @@ def parse_deadline(deadline_text: str | None) -> dict | None:
             return {"date": f"{y:04d}-{mo:02d}-{d:02d}"}
 
     # Korean: "5월 15일" (연도 없음 → 올해)
-    m_ko_md = re.search(r"(?<!\d)(\d{1,2})월\s*(\d{1,2})일", text)
-    if m_ko_md:
-        mo, d = int(m_ko_md.group(1)), int(m_ko_md.group(2))
+    # 본문에 여러 날짜가 있을 경우: 오늘 이후의 가장 가까운 미래 날짜 우선, 없으면 첫 번째
+    ko_md_candidates = list(re.finditer(r"(?<!\d)(\d{1,2})월\s*(\d{1,2})일", text))
+    if ko_md_candidates:
         y = datetime.now(SEOUL).year
-        if 1 <= mo <= 12 and 1 <= d <= 31:
+        today = datetime.now(SEOUL).date()
+        future_dates = []
+        for m in ko_md_candidates:
+            mo, d = int(m.group(1)), int(m.group(2))
+            if 1 <= mo <= 12 and 1 <= d <= 31:
+                from datetime import date as _date
+                try:
+                    candidate = _date(y, mo, d)
+                    future_dates.append((candidate, mo, d))
+                except ValueError:
+                    continue
+        if future_dates:
+            # 미래 날짜 중 가장 가까운 것, 없으면 첫 번째
+            future_only = [(c, mo, d) for c, mo, d in future_dates if c >= today]
+            chosen = min(future_only, key=lambda x: x[0]) if future_only else future_dates[0]
+            _, mo, d = chosen
             return {"date": f"{y:04d}-{mo:02d}-{d:02d}"}
 
     # YYYY-MM-DD (시간·T 없음) → 종일
