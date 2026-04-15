@@ -153,9 +153,9 @@
   }
 
   function courseLabel(c) {
-    const code = (c.course_code || "").trim();
+    // SNU Canvas: name과 course_code가 동일한 문자열 → 둘 다 쓰면 두 번 표기됨
     const name = (c.name || "").trim();
-    if (code && name) return `${code} ${name}`;
+    const code = (c.course_code || "").trim();
     return name || code || `Course ${c.id}`;
   }
 
