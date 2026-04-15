@@ -1,10 +1,10 @@
 {
   "version": "2.1.4",
   "project": "etl-calendar",
-  "activeFeature": "db-persistence",
-  "phase": "do",
-  "iteration": 2,
-  "lastUpdated": "2026-04-15",
+  "activeFeature": "auto-sync",
+  "phase": "check",
+  "iteration": 3,
+  "lastUpdated": "2026-04-13",
   "features": {
     "etl-extension-no2fa": {
       "phase": "act",
@@ -19,24 +19,33 @@
           "Google OAuth 연동 완료",
           "CRYPTO_KEY Fernet 검증",
           "iCal /feeds/ 경로 허용",
-          "refreshMe 배너 덮어쓰기 버그 수정"
+          "refreshMe 배너 덮어쓰기 버그 수정",
+          "404 페이지 graceful 처리, 빈 items 허용 전송"
         ],
-        "pending": [
-          "end-to-end 실제 테스트 (iCal 구독 URL → Google Calendar 일정 생성 확인)"
-        ]
+        "pending": []
       }
     },
     "db-persistence": {
-      "phase": "do",
-      "status": "planned",
+      "phase": "act",
+      "status": "done",
       "planDoc": "docs/01-plan/features/db-persistence.plan.md",
       "problem": "Render 재배포마다 SQLite DB 초기화 → 사용자 계정·Google 토큰 소실",
       "solution": "Render 무료 PostgreSQL 연결",
+      "tasks": []
+    },
+    "auto-sync": {
+      "phase": "check",
+      "status": "in_progress",
+      "problem": "사용자가 수동으로 동기화해야 함 → 서버 스케줄러로 자동화, 사용자 토글로 on/off",
+      "solution": "APScheduler 1h 주기 + PATCH /api/me/auto-sync + UI 토글",
       "tasks": [
-        "psycopg2-binary → requirements.txt 추가",
-        "app/db.py SQLite 전용 옵션(check_same_thread) 조건 분기",
-        "render.yaml databases 섹션 추가 + DATABASE_URL 환경변수 연결",
-        "Render 대시보드에서 PostgreSQL 인스턴스 생성 후 DATABASE_URL 확인"
+        "✅ models.py: auto_sync_enabled / interval_hours / last_auto_sync_at",
+        "✅ db.py: ALTER TABLE 자동 마이그레이션 (SQLite·PostgreSQL)",
+        "✅ services/auto_sync.py: 유저별 iCal→Google 스케줄러",
+        "✅ main.py: BackgroundScheduler lifespan 등록",
+        "✅ routers/me.py: PATCH /api/me/auto-sync",
+        "✅ static/index.html: 토글 UI + 마지막 실행 시각",
+        "⬜ 배포 후 E2E 검증: 토글 → DB 저장 → 스케줄러 실행 확인"
       ]
     }
   }
