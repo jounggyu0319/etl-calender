@@ -7,6 +7,8 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from apscheduler.schedulers.background import BackgroundScheduler
+
 
 def _attach_etl_console_loggers() -> None:
     """eTL 동기화 진행 로그를 콘솔에 남깁니다(핸들러가 없을 때만)."""
@@ -32,6 +34,9 @@ from app.routers import api_router
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Render 무료 등: 인스턴스가 슬립이면 스케줄이 정시에 돌지 않을 수 있음(플랫폼 한계).
+_auto_sync_scheduler = BackgroundScheduler()
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -43,8 +48,19 @@ async def lifespan(_: FastAPI):
 
         os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
     init_db()
+    from app.services.auto_sync import run_auto_sync_all
+
+    _auto_sync_scheduler.add_job(
+        run_auto_sync_all,
+        "interval",
+        hours=1,
+        id="auto_sync_all",
+        replace_existing=True,
+    )
+    _auto_sync_scheduler.start()
     print(f"디버거 주소: {_settings.etl_chrome_debugger_address}", flush=True)
     yield
+    _auto_sync_scheduler.shutdown(wait=False)
 
 
 settings = get_settings()

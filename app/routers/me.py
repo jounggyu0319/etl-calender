@@ -5,7 +5,7 @@ from app.config import Settings, get_settings
 from app.db import get_db
 from app.deps import get_current_user
 from app.models import User
-from app.schemas import EtlCredentialsUpdate, MoodleCalendarFeedUpdate, UserOut
+from app.schemas import AutoSyncUpdate, EtlCredentialsUpdate, MoodleCalendarFeedUpdate, UserOut
 from app.security import encrypt_text
 from app.serializers import user_to_out
 from app.services.moodle_ics import validate_moodle_calendar_feed_url
@@ -27,6 +27,19 @@ def update_etl_credentials(
 ) -> UserOut:
     user.etl_username_enc = encrypt_text(body.etl_username.strip(), settings)
     user.etl_password_enc = encrypt_text(body.etl_password.strip("\r\n"), settings)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user_to_out(user)
+
+
+@router.patch("/auto-sync", response_model=UserOut)
+def update_auto_sync(
+    body: AutoSyncUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserOut:
+    user.auto_sync_enabled = bool(body.enabled)
     db.add(user)
     db.commit()
     db.refresh(user)

@@ -94,6 +94,21 @@
           </button>
         </div>
         <div id="me-kv" class="space-y-3"></div>
+        <div id="auto-sync-block" class="mt-4 border-t border-slate-100 pt-4">
+          <div class="flex flex-col gap-2">
+            <div class="flex flex-wrap items-center gap-3">
+              <span class="text-sm font-semibold text-slate-900">자동 동기화</span>
+              <label class="relative inline-flex cursor-pointer items-center">
+                <input type="checkbox" id="auto-sync-toggle" class="peer sr-only" />
+                <span
+                  class="relative h-6 w-11 shrink-0 rounded-full bg-slate-200 transition peer-checked:bg-snu peer-focus-visible:ring-2 peer-focus-visible:ring-snu/40 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition peer-checked:after:translate-x-5"
+                  aria-hidden="true"></span>
+              </label>
+            </div>
+            <p id="auto-sync-last" class="text-xs text-slate-500">마지막 자동 동기화: —</p>
+            <p id="auto-sync-hint" class="text-xs text-slate-400"></p>
+          </div>
+        </div>
       </div>
 
       <!-- 핵심 액션 -->
@@ -395,6 +410,16 @@
           </div>
         `;
 
+        const lastAuto = me.last_auto_sync_at;
+        const lastStr = lastAuto ? formatKSTShort(lastAuto) : "";
+        $("auto-sync-last").textContent =
+          "마지막 자동 동기화: " + (lastStr || "—");
+        $("auto-sync-toggle").checked = !!me.auto_sync_enabled;
+        const autoNeed = !me.has_google || !me.has_moodle_calendar_feed;
+        $("auto-sync-hint").textContent = autoNeed
+          ? "Google 연결과 캘린더 구독 URL이 모두 있어야 자동 동기화가 동작해요."
+          : "서버가 주기적으로 구독 캘린더를 가져와 Google에 반영해요. (Render 무료 플랜은 비활성 시 실행이 지연될 수 있어요.)";
+
         const hetl = me.has_etl_credentials;
         $("sync-row-etl").style.display = hetl ? "block" : "none";
         $("sync-row-etl").classList.toggle("hidden", !hetl);
@@ -500,6 +525,21 @@
         showBanner("err", e.message || "Google 연결을 시작할 수 없습니다.");
       }
     };
+
+    $("auto-sync-toggle").addEventListener("change", async () => {
+      const on = $("auto-sync-toggle").checked;
+      try {
+        await api("/api/me/auto-sync", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: on }),
+        });
+        await refreshMe();
+      } catch (e) {
+        showBanner("err", e.message || "자동 동기화 설정을 저장하지 못했습니다.");
+        $("auto-sync-toggle").checked = !on;
+      }
+    });
 
     function formatSyncResult(r) {
       const lines = [];

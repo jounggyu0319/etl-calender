@@ -32,13 +32,30 @@ def init_db() -> None:
     from app import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
-    # SQLite: 기존 DB에 새 컬럼 추가 (create_all만으로는 ALTER 안 됨)
-    if _is_sqlite:
-        insp = inspect(engine)
-        if insp.has_table("users"):
-            cols = {c["name"] for c in insp.get_columns("users")}
-            if "moodle_calendar_feed_enc" not in cols:
-                with engine.begin() as conn:
-                    conn.execute(
-                        text("ALTER TABLE users ADD COLUMN moodle_calendar_feed_enc TEXT")
-                    )
+    # 기존 DB에 새 컬럼 추가 (create_all만으로는 ALTER 안 됨)
+    insp = inspect(engine)
+    if not insp.has_table("users"):
+        return
+    cols = {c["name"] for c in insp.get_columns("users")}
+    stmts: list[str] = []
+    if "moodle_calendar_feed_enc" not in cols:
+        stmts.append("ALTER TABLE users ADD COLUMN moodle_calendar_feed_enc TEXT")
+    if "auto_sync_enabled" not in cols:
+        stmts.append(
+            "ALTER TABLE users ADD COLUMN auto_sync_enabled INTEGER DEFAULT 0 NOT NULL"
+            if _is_sqlite
+            else "ALTER TABLE users ADD COLUMN auto_sync_enabled BOOLEAN DEFAULT FALSE NOT NULL"
+        )
+    if "auto_sync_interval_hours" not in cols:
+        stmts.append(
+            "ALTER TABLE users ADD COLUMN auto_sync_interval_hours INTEGER DEFAULT 24 NOT NULL"
+        )
+    if "last_auto_sync_at" not in cols:
+        stmts.append(
+            "ALTER TABLE users ADD COLUMN last_auto_sync_at DATETIME"
+            if _is_sqlite
+            else "ALTER TABLE users ADD COLUMN last_auto_sync_at TIMESTAMP WITH TIME ZONE"
+        )
+    for sql in stmts:
+        with engine.begin() as conn:
+            conn.execute(text(sql))

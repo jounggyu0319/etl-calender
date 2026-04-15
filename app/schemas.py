@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
@@ -15,6 +17,8 @@ class UserOut(BaseModel):
     has_etl_credentials: bool
     has_moodle_calendar_feed: bool
     has_google: bool
+    auto_sync_enabled: bool = False
+    last_auto_sync_at: datetime | None = None
 
 
 class Token(BaseModel):
@@ -25,6 +29,12 @@ class Token(BaseModel):
 class EtlCredentialsUpdate(BaseModel):
     etl_username: str = Field(min_length=1, max_length=128)
     etl_password: str = Field(min_length=1, max_length=256)
+
+
+class AutoSyncUpdate(BaseModel):
+    """자동 동기화 on/off."""
+
+    enabled: bool
 
 
 class MoodleCalendarFeedUpdate(BaseModel):

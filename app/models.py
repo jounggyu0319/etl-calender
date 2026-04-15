@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -28,3 +28,10 @@ class User(Base):
     google_creds_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     seen_assignment_ids: Mapped[str] = mapped_column(Text, default="[]")
+
+    auto_sync_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    auto_sync_interval_hours: Mapped[int] = mapped_column(Integer, default=24)
+    last_auto_sync_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
