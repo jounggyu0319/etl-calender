@@ -279,19 +279,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const items = collected.items || [];
       const courseCount = collected.courses || 0;
-      setProgress(`${courseCount}개 강의에서 ${items.length}건 수집 완료. 서버 전송 중…`, 90);
+      const skipped = collected.coursesSkipped || 0;
+      const partialHead =
+        skipped > 0
+          ? items.length > 0
+            ? `일부 강의를 불러오지 못했지만 ${items.length}건 수집됨`
+            : "일부 강의를 불러오지 못했습니다 (새 항목 없음)"
+          : "";
+      setProgress(
+        (partialHead ? partialHead + " · " : "") +
+          `${courseCount}개 강의에서 ${items.length}건 수집. 서버 전송 중…`,
+        90
+      );
 
-      // 서버 전송
+      // 서버 전송 (빈 items도 전송 → 서버/📭 새 항목 없음 처리)
       const result = await postFromClient(_apiBase, _jwt, items);
       hideProgress();
 
       const added = (result.calendar_events_created || 0) + (result.ics_events_created || 0);
-      const msg = [
+      const parts = [
+        partialHead,
         `강의 ${result.courses_found || courseCount}개 확인`,
         `새 항목 ${result.new_assignments || 0}건`,
         `캘린더 추가 ${added}건`,
         result.message || "",
-      ].filter(Boolean).join(" · ");
+      ].filter(Boolean);
+      const msg = parts.join(" · ");
       showResult((added > 0 ? "✅ " : "📭 ") + msg, true);
     } catch (e) {
       hideProgress();

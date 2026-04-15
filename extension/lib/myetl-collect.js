@@ -89,8 +89,10 @@
   }
 
   // ── fetch helper ─────────────────────────────────────────────
+  /** @returns {Promise<string|null>} 404면 null(호출부에서 건너뜀), 그 외 비정상은 throw */
   async function fetchText(url) {
     const r = await fetch(url, { credentials: "include", cache: "no-store" });
+    if (r.status === 404) return null;
     if (!r.ok) throw new Error(`HTTP ${r.status} — ${url}`);
     return r.text();
   }
@@ -100,7 +102,7 @@
    * @param {object} options
    * @param {number} [options.delayMs=300] - 요청 간 딜레이(ms). 너무 짧으면 서버 부하.
    * @param {function} [options.onProgress] - ({current, total, courseName}) 콜백
-   * @returns {Promise<{error:string|null, items:Array, courses:number}>}
+   * @returns {Promise<{error:string|null, items:Array, courses:number, coursesSkipped?:number}>}
    */
   async function collectMyetlAssignments(options) {
     const opts = options || {};
@@ -119,6 +121,13 @@
     } catch (e) {
       return { error: `강의 목록 로드 실패: ${e}`, items: [], courses: 0 };
     }
+    if (myHtml == null) {
+      return {
+        error: "강의 목록을 불러올 수 없습니다(404). myetl에 로그인되어 있는지 확인하세요.",
+        items: [],
+        courses: 0,
+      };
+    }
 
     const courses = parseCoursesFromMyHtml(myHtml).slice(0, 60);
     if (courses.length === 0) {
@@ -130,6 +139,7 @@
     }
 
     const items = [];
+    let coursesSkipped = 0;
     let idx = 0;
     for (const c of courses) {
       idx++;
@@ -140,6 +150,11 @@
       try {
         courseHtml = await fetchText(c.url);
       } catch {
+        coursesSkipped++;
+        continue;
+      }
+      if (courseHtml == null) {
+        coursesSkipped++;
         continue;
       }
 
@@ -149,8 +164,10 @@
         let deadline = "";
         try {
           const body = await fetchText(act.url);
-          const doc = new DOMParser().parseFromString(body, "text/html");
-          deadline = extractDeadlineFromDoc(doc);
+          if (body != null) {
+            const doc = new DOMParser().parseFromString(body, "text/html");
+            deadline = extractDeadlineFromDoc(doc);
+          }
         } catch {
           // 마감일 없이도 수집은 계속
         }
@@ -158,7 +175,13 @@
       }
     }
 
-    return { error: null, items, courses: courses.length };
+    // error: null + items=[] → 서버로 빈 배열 전송 → "📭 새 항목 없음" 등으로 처리 (수집 실패 아님)
+    return {
+      error: null,
+      items,
+      courses: courses.length,
+      coursesSkipped,
+    };
   }
 
   // ── 전역 노출 ─────────────────────────────────────────────────
