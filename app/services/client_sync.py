@@ -1,4 +1,8 @@
-"""브라우저·데스크톱 클라이언트가 myetl 세션으로 수집한 과제 목록을 Google 캘린더에 반영."""
+"""브라우저·데스크톱 클라이언트가 myetl 세션으로 수집한 과제 목록을 Google 캘린더에 반영.
+
+Google 일정 중복 방지는 `calendar_service.add_assignment_to_calendar`의
+`extendedProperties.private.etl_id` 조회로 처리합니다(`seen_assignment_ids`는 보조).
+"""
 
 from __future__ import annotations
 

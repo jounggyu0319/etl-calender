@@ -145,6 +145,7 @@ class TestOpenApi(unittest.TestCase):
         self.assertIsNotNone(post)
         self.assertIn("/api/sync/etl/prepare", paths)
         self.assertIn("/api/sync/etl/continue", paths)
+        self.assertIn("/api/sync/canvas", paths)
 
 
 class TestCalendarParse(unittest.TestCase):

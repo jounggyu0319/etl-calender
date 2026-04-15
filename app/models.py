@@ -26,6 +26,8 @@ class User(Base):
     # Moodle «캘린더보내기» 구독 URL(export.php?…&authtoken=…). https·학교 호스트만 허용.
     moodle_calendar_feed_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
     google_creds_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # myetl Canvas «새 액세스 토큰» (서버에서 REST API 호출용, 암호화 저장)
+    canvas_token_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     seen_assignment_ids: Mapped[str] = mapped_column(Text, default="[]")
 

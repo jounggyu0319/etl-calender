@@ -57,6 +57,8 @@ def init_db() -> None:
             if _is_sqlite
             else "ALTER TABLE users ADD COLUMN last_auto_sync_at TIMESTAMP WITH TIME ZONE"
         )
+    if "canvas_token_enc" not in cols:
+        stmts.append("ALTER TABLE users ADD COLUMN canvas_token_enc TEXT")
     for sql in stmts:
         with engine.begin() as conn:
             conn.execute(text(sql))

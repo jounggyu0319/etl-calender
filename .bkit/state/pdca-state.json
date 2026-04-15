@@ -1,7 +1,7 @@
 {
   "version": "2.1.4",
   "project": "etl-calendar",
-  "activeFeature": "neon-postgres-infra",
+  "activeFeature": "sync-suite-three",
   "phase": "act",
   "iteration": 1,
   "lastUpdated": "2026-04-15",
@@ -21,7 +21,9 @@
           "iCal /feeds/ 경로 허용",
           "refreshMe 배너 덮어쓰기 버그 수정",
           "404 페이지 graceful 처리, 빈 items 허용 전송",
-          "Canvas API 수집 + 2026-1학기 due_at 필터 (2026-03-01~08-31 KST)"
+          "Canvas 수집 + 서울대 학기 구간 동적 필터",
+          "Google Calendar etl_id(extendedProperties) 중복 방지",
+          "서버 Canvas 토큰 동기화 POST /api/sync/canvas"
         ],
         "pending": []
       }
@@ -64,6 +66,15 @@
         "Canvas API 토큰: /profile/settings → 새 액세스 토큰 생성 가능 확인",
         "models.py에 plan: free|pro 필드 및 Stripe 연동 준비 이미 존재",
         "확장 프로그램은 과도기 수단 — 장기적으로 제거 예정"
+      ]
+    },
+    "sync-suite-three": {
+      "phase": "act",
+      "status": "done",
+      "tasks": [
+        "✅ calendar: extendedProperties.private.etl_id + 기존 일정 조회 후 skip",
+        "✅ app/snu_academic_calendar.py + extension 학기 동적",
+        "✅ canvas_token_enc, PATCH /api/me/canvas-token, canvas_sync.py, UI, POST /api/sync/canvas"
       ]
     },
     "auto-sync": {

@@ -4,7 +4,9 @@ Google Calendar — 사용자별 Credentials(JSON)로 서비스 생성 및 이�
 
 from __future__ import annotations
 
+import hashlib
 import json
+import logging
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -15,6 +17,8 @@ from googleapiclient.discovery import build
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 CALENDAR_ID = "primary"
 SEOUL = timezone(timedelta(hours=9))
+_CAL_LOG = logging.getLogger(__name__)
+PRIVATE_ETL_KEY = "etl_id"
 
 
 def credentials_from_authorized_user_json(token_json: str) -> Credentials:
@@ -206,6 +210,37 @@ def parse_deadline(deadline_text: str | None) -> dict | None:
     return None
 
 
+def _etl_id_for_calendar(assignment: dict) -> str:
+    e = str(assignment.get("id") or "").strip()
+    if e:
+        return e
+    u = str(assignment.get("url") or "")
+    t = str(assignment.get("title") or "")
+    h = hashlib.sha256(f"{u}|{t}".encode("utf-8")).hexdigest()[:40]
+    return f"etl:noid:{h}"
+
+
+def calendar_event_exists_with_etl_id(service, etl_id: str) -> bool:
+    """primary 캘린더에 extendedProperties.private.etl_id 가 일치하는 일정이 있으면 True."""
+    if not etl_id:
+        return False
+    try:
+        resp = (
+            service.events()
+            .list(
+                calendarId=CALENDAR_ID,
+                privateExtendedProperty=f"{PRIVATE_ETL_KEY}={etl_id}",
+                maxResults=5,
+                singleEvents=True,
+            )
+            .execute()
+        )
+        return bool(resp.get("items"))
+    except Exception as exc:
+        _CAL_LOG.warning("Calendar events.list(etl_id) 실패: %s", exc)
+        return False
+
+
 def add_assignment_to_calendar(service, assignment: dict) -> bool:
     deadline = parse_deadline(assignment.get("deadline"))
     kind = assignment.get("activity_type") or "assign"
@@ -227,6 +262,10 @@ def add_assignment_to_calendar(service, assignment: dict) -> bool:
     else:
         label = "과제"
         desc_kind = "eTL 과제"
+
+    etl_id = _etl_id_for_calendar(assignment)
+    if calendar_event_exists_with_etl_id(service, etl_id):
+        return True
 
     if not deadline:
         today = datetime.now(SEOUL).strftime("%Y-%m-%d")
@@ -258,6 +297,7 @@ def add_assignment_to_calendar(service, assignment: dict) -> bool:
             ],
         },
         "colorId": "11",
+        "extendedProperties": {"private": {PRIVATE_ETL_KEY: etl_id[:1024]}},
     }
     try:
         service.events().insert(calendarId=CALENDAR_ID, body=event).execute()

@@ -1,22 +1,59 @@
 /**
  * Canvas LMS (myetl.snu.ac.kr) — 세션 쿠키로 REST API 수집.
- * 이번 학기(2026-03-01 ~ 2026-08-31, KST)에 마감(due_at)이 있는 과제·퀴즈만 포함.
- *
- * Canvas Assignments API에는 due_after 등 학기 단위 필터가 없어, 전부 받은 뒤 클라이언트에서 필터합니다.
- * (bucket=upcoming 은 «아직 제출 전·곧 마감» 위주라 학기 전체와 맞지 않아 사용하지 않음.)
+ * 서울대 학사일정 기준 현재 학기(또는 방학 시 가장 가까운 다음 학기)에 due_at이 있는 과제·퀴즈만 포함.
  */
 (function attachGlobal() {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  /** 2026학년도 1학기 (가정): KST 자정 기준 구간 */
-  const SEMESTER_START_MS = Date.parse("2026-03-01T00:00:00+09:00");
-  const SEMESTER_END_MS = Date.parse("2026-08-31T23:59:59.999+09:00");
+  function pad2(n) {
+    return String(n).padStart(2, "0");
+  }
 
-  function isDueInSemester(isoDue) {
+  /** KST 해당 일 자정(포함) ~ 말일 23:59:59 (포함) 구간의 UTC epoch ms */
+  function kstRangeStartMs(y, mo, d) {
+    return Date.parse(`${y}-${pad2(mo)}-${pad2(d)}T00:00:00+09:00`);
+  }
+  function kstRangeEndMs(y, mo, d) {
+    return Date.parse(`${y}-${pad2(mo)}-${pad2(d)}T23:59:59+09:00`);
+  }
+
+  /** academicYear 학년도(Y학년도 = 3월 시작) — 2026학년도 스펙을 연도만 바꿔 확장 */
+  function instructionalWindowsForYear(academicYear) {
+    const y = academicYear;
+    return [
+      [kstRangeStartMs(y, 3, 3), kstRangeEndMs(y, 6, 21)],
+      [kstRangeStartMs(y, 6, 23), kstRangeEndMs(y, 8, 3)],
+      [kstRangeStartMs(y, 9, 1), kstRangeEndMs(y, 12, 21)],
+      [kstRangeStartMs(y, 12, 22), kstRangeEndMs(y + 1, 1, 25)],
+    ];
+  }
+
+  function pickDueFilterWindowMs() {
+    const nowMs = Date.now();
+    const y = new Date().getFullYear();
+    const ayMin = Math.max(2026, y - 1);
+    const ayMax = y + 2;
+    const flat = [];
+    for (let ay = ayMin; ay <= ayMax; ay++) {
+      for (const w of instructionalWindowsForYear(ay)) flat.push(w);
+    }
+    flat.sort((a, b) => a[0] - b[0]);
+    if (!flat.length) return instructionalWindowsForYear(2026)[0];
+    for (const [a, b] of flat) {
+      if (nowMs >= a && nowMs <= b) return [a, b];
+    }
+    for (const [a, b] of flat) {
+      if (nowMs < a) return [a, b];
+    }
+    return flat[flat.length - 1];
+  }
+
+  function isDueInActiveSemester(isoDue) {
     if (isoDue == null || isoDue === "") return false;
     const t = Date.parse(isoDue);
     if (Number.isNaN(t)) return false;
-    return t >= SEMESTER_START_MS && t <= SEMESTER_END_MS;
+    const [startMs, endMs] = pickDueFilterWindowMs();
+    return t >= startMs && t <= endMs;
   }
 
   function parseNextFromLink(linkHeader) {
@@ -29,11 +66,6 @@
     return null;
   }
 
-  /**
-   * @param {string} firstUrl
-   * @param {number} delayMs
-   * @returns {Promise<any[]>}
-   */
   async function fetchAllPages(firstUrl, delayMs) {
     const rows = [];
     let url = firstUrl;
@@ -57,13 +89,6 @@
     return name || code || `Course ${c.id}`;
   }
 
-  // ── 메인 수집 함수 ────────────────────────────────────────────
-  /**
-   * @param {object} options
-   * @param {number} [options.delayMs=300]
-   * @param {function} [options.onProgress]
-   * @returns {Promise<{error:string|null, items:Array, courses:number, coursesSkipped?:number}>}
-   */
   async function collectMyetlAssignments(options) {
     const opts = options || {};
     const delayMs = typeof opts.delayMs === "number" ? opts.delayMs : 300;
@@ -120,15 +145,15 @@
           delayMs,
         );
       } catch {
-        /* 퀴즈 API 없거나 권한 없음 — 과제만 */
+        /* 퀴즈 API 없거나 권한 없음 */
       }
 
       const includedAssignmentIds = new Set();
 
       for (const a of assignments) {
         const due = a.due_at;
-        if (!isDueInSemester(due)) continue;
-        includedAssignmentIds.add(a.id);
+        if (!isDueInActiveSemester(due)) continue;
+        if (a.id != null) includedAssignmentIds.add(a.id);
         items.push({
           id: `canvas-${cid}-assign-${a.id}`,
           title: (a.name || "과제").trim(),
@@ -142,7 +167,7 @@
       for (const q of quizzes) {
         if (q.assignment_id != null && includedAssignmentIds.has(q.assignment_id)) continue;
         const due = q.due_at;
-        if (!isDueInSemester(due)) continue;
+        if (!isDueInActiveSemester(due)) continue;
         items.push({
           id: `canvas-${cid}-quiz-${q.id}`,
           title: (q.title || "퀴즈").trim(),

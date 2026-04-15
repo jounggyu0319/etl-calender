@@ -8,6 +8,7 @@ from app.models import User
 from app.schemas import ClientSyncImport, SyncProgressOut, SyncResult
 from app.services.client_sync import import_from_client
 from app.services.sync_progress import get_progress
+from app.services.canvas_sync import run_canvas_server_sync
 from app.services.sync_runner import run_etl_continue_sync, run_etl_prepare_browser, run_user_sync
 
 router = APIRouter()
@@ -57,6 +58,17 @@ def etl_continue_sync(
     """prepare 이후 세션을 확인하고 과제·퀴즈 수집 및 Google 반영을 진행합니다."""
     print("=== 동기화 API 호출됨 === POST /api/sync/etl/continue", flush=True)
     return run_etl_continue_sync(db, user, settings)
+
+
+@router.post("/canvas", response_model=SyncResult)
+def sync_canvas_server(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> SyncResult:
+    """저장된 Canvas API 토큰으로 myetl REST에서 과제·퀴즈를 가져와 Google Calendar에 반영합니다."""
+    print("=== 동기화 API 호출됨 === POST /api/sync/canvas", flush=True)
+    return run_canvas_server_sync(db, user, settings)
 
 
 @router.post("/from-client", response_model=SyncResult)

@@ -17,6 +17,7 @@ class UserOut(BaseModel):
     has_etl_credentials: bool
     has_moodle_calendar_feed: bool
     has_google: bool
+    has_canvas_token: bool = False
     auto_sync_enabled: bool = False
     last_auto_sync_at: datetime | None = None
 
@@ -29,6 +30,12 @@ class Token(BaseModel):
 class EtlCredentialsUpdate(BaseModel):
     etl_username: str = Field(min_length=1, max_length=128)
     etl_password: str = Field(min_length=1, max_length=256)
+
+
+class CanvasTokenUpdate(BaseModel):
+    """myetl Canvas REST API 액세스 토큰. 빈 문자열이면 저장 제거."""
+
+    token: str = Field(default="", max_length=4096)
 
 
 class AutoSyncUpdate(BaseModel):
@@ -91,6 +98,8 @@ class SyncResult(BaseModel):
     ical_sync_ok: bool | None = None
     # True: POST /api/sync/ (간편 동기화) 응답 — 강의 스캔 문구와 섞지 않음
     ical_ui_context: bool = False
+    # True: POST /api/sync/canvas — 서버 Canvas API 동기화
+    canvas_server_context: bool = False
 
 
 class BillingStatus(BaseModel):
