@@ -14,7 +14,7 @@ __all__ = [
 
 
 def normalize_course_display_name(subject: str) -> str:
-    """과목 표시명: YYYY-N 접두 전역 제거, (001) 섹션 제거, 대괄호·중복 토큰 정리."""
+    """과목 표시명: YYYY-N 접두 전역 제거, (001) 섹션 제거, 구문 중복 정리."""
     s = (subject or "").strip()
     if not s:
         return "과목"
@@ -22,12 +22,13 @@ def normalize_course_display_name(subject: str) -> str:
     s = re.sub(r"\d{4}-\d+\s+", "", s)
     s = re.sub(r"\s*\(\d+\)\s*", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
+    # 전체 구문이 반복된 경우 제거: "ABC XYZ ABC XYZ" → "ABC XYZ"
     parts = s.split()
-    deduped: list[str] = []
-    for p in parts:
-        if not deduped or deduped[-1] != p:
-            deduped.append(p)
-    s = " ".join(deduped)
+    n = len(parts)
+    for half in range(1, n // 2 + 1):
+        if n % half == 0 and parts[:half] * (n // half) == parts:
+            s = " ".join(parts[:half])
+            break
     return s or "과목"
 
 

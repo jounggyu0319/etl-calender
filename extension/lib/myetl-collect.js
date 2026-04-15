@@ -61,6 +61,39 @@
     return isDueInActiveSemester(isoPosted);
   }
 
+  /**
+   * 현재 학기 코드 반환: "2026-1" (3~8월) 또는 "2026-2" (9~2월)
+   */
+  function currentSemesterCode() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth() + 1;
+    if (m >= 3 && m <= 8) return `${y}-1`;
+    if (m >= 9) return `${y}-2`;
+    return `${y - 1}-2`;
+  }
+
+  /**
+   * Canvas 강의가 현재 학기에 해당하는지 판단.
+   * 1순위: term.start_at / end_at 으로 현재 학기 창과 겹치는지 확인
+   * 2순위: 강의명에 "YYYY-N" 코드 포함 여부
+   */
+  function isCourseInCurrentSemester(c) {
+    const [winStart, winEnd] = pickDueFilterWindowMs();
+    const term = c.term;
+    if (term) {
+      const ts = term.start_at ? Date.parse(term.start_at) : null;
+      const te = term.end_at ? Date.parse(term.end_at) : null;
+      if (ts !== null && te !== null && !Number.isNaN(ts) && !Number.isNaN(te)) {
+        return ts <= winEnd && te >= winStart;
+      }
+    }
+    // fallback: "YYYY-N" prefix in course name
+    const semCode = currentSemesterCode();
+    const name = (c.name || c.course_code || "").trim();
+    return name.startsWith(semCode) || name.includes(`[${semCode}`);
+  }
+
   function examKindFromTitle(title) {
     const s = title || "";
     const t = s.toLowerCase();
@@ -139,7 +172,7 @@
     let courses;
     try {
       courses = await fetchAllPages(
-        `${origin}/api/v1/courses?enrollment_state=active&per_page=100`,
+        `${origin}/api/v1/courses?enrollment_state=active&include[]=term&per_page=100`,
         delayMs,
       );
     } catch (e) {
@@ -154,7 +187,10 @@
       };
     }
 
-    const list = courses.slice(0, 60);
+    // 현재 학기 강의만 필터링 (term 날짜 → YYYY-N 이름 순으로 판단)
+    const semesterCourses = courses.filter(isCourseInCurrentSemester);
+    // term 필터링이 아무것도 걸러내지 못하면(term 정보 없는 경우) 전체 사용
+    const list = (semesterCourses.length > 0 ? semesterCourses : courses).slice(0, 60);
     const items = [];
     let coursesSkipped = 0;
     let idx = 0;
