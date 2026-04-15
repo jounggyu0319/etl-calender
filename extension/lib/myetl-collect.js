@@ -11,19 +11,15 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // ── Canvas API fetch ──────────────────────────────────────────
-  async function apiFetch(url) {
-    const res = await fetch(url, { credentials: "include", cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status} — ${url}`);
-    return res.json();
-  }
+  const API_HEADERS = { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" };
 
   /** 페이지네이션 전체 수집 (Link 헤더 기반) */
   async function fetchAllPages(url) {
     const results = [];
     let next = url;
     while (next) {
-      const res = await fetch(next, { credentials: "include", cache: "no-store" });
-      if (!res.ok) break;
+      const res = await fetch(next, { credentials: "include", cache: "no-store", headers: API_HEADERS });
+      if (!res.ok) throw new Error(`HTTP ${res.status} — ${next}`);
       const data = await res.json();
       if (Array.isArray(data)) results.push(...data);
       // Canvas Link header: <url>; rel="next"
