@@ -1,133 +1,57 @@
 /**
- * myetl 강의별 활동(과제·퀴즈) 수집.
- * Chrome 확장 content script 환경에서 동작 (DOMParser + fetch + 쿠키 세션).
+ * Canvas LMS (myetl.snu.ac.kr) 강의별 과제·퀴즈 수집.
+ * Chrome 확장 content script 환경 — 세션 쿠키로 Canvas REST API 호출.
  *
- * 강의 목록 획득 전략 (순서대로):
- *  1. 현재 페이지 DOM — 네트워크 요청 없이 사이드바에서 추출
- *  2. 네트워크 폴백 — /my/ → /dashboard → /course/ 순으로 시도
+ * API 엔드포인트:
+ *   GET /api/v1/courses?enrollment_state=active&per_page=100
+ *   GET /api/v1/courses/:id/assignments?per_page=100
+ *   GET /api/v1/courses/:id/quizzes?per_page=100
  */
 (function attachGlobal() {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  // ── 마감일 추출 ──────────────────────────────────────────────
-  const DEADLINE_SELECTORS = [
-    ".submissionstatustable td",
-    ".generaltable td",
-    ".quizattemptsummary td",
-    ".quizinfo td",
-    "#region-main",
-    "body",
-  ];
+  // ── Canvas API fetch ──────────────────────────────────────────
+  async function apiFetch(url) {
+    const res = await fetch(url, { credentials: "include", cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status} — ${url}`);
+    return res.json();
+  }
 
-  function extractDeadlineFromDoc(doc) {
-    for (const sel of DEADLINE_SELECTORS) {
-      for (const el of doc.querySelectorAll(sel)) {
-        const found = matchDateInText(el.textContent || "");
-        if (found) return found;
-      }
+  /** 페이지네이션 전체 수집 (Link 헤더 기반) */
+  async function fetchAllPages(url) {
+    const results = [];
+    let next = url;
+    while (next) {
+      const res = await fetch(next, { credentials: "include", cache: "no-store" });
+      if (!res.ok) break;
+      const data = await res.json();
+      if (Array.isArray(data)) results.push(...data);
+      // Canvas Link header: <url>; rel="next"
+      const link = res.headers.get("Link") || "";
+      const match = link.match(/<([^>]+)>;\s*rel="next"/);
+      next = match ? match[1] : null;
     }
-    return "";
+    return results;
   }
 
-  function matchDateInText(text) {
-    if (!text) return "";
-    const t = text.replace(/\n/g, " ");
-    let m = t.match(/(\d{4}년\s*\d{1,2}월\s*\d{1,2}일\s*(?:오전|오후)\s*\d{1,2}:\d{2})/);
-    if (m) return m[1].trim();
-    m = t.match(/(\d{4}년\s*\d{1,2}월\s*\d{1,2}일)/);
-    if (m) return m[1].trim();
-    m = t.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:[+-]\d{2}:\d{2}|Z)?)/);
-    if (m) return m[1].trim();
-    m = t.match(/(\d{4}-\d{2}-\d{2})/);
-    if (m) return m[1].trim();
-    return "";
-  }
-
-  // ── 강의 목록 파싱 ────────────────────────────────────────────
-  /** document 객체에서 직접 강의 링크 추출 */
-  function parseCoursesFromDoc(doc) {
-    const byUrl = new Map();
-    for (const a of doc.querySelectorAll('a[href*="course/view.php"]')) {
-      const href = (a.href || "").split("#")[0].trim();
-      const name = (a.textContent || "").trim();
-      if (href && name && !byUrl.has(href)) byUrl.set(href, name);
-    }
-    return [...byUrl.entries()].map(([url, name]) => ({ url, name }));
-  }
-
-  /** HTML 문자열에서 강의 링크 추출 */
-  function parseCoursesFromHtml(html) {
-    return parseCoursesFromDoc(new DOMParser().parseFromString(html, "text/html"));
-  }
-
-  // ── 강의 페이지에서 활동 링크 파싱 ──────────────────────────
-  function parseActivitiesFromCourseHtml(html, courseName) {
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    const found = new Map();
-    for (const [hk, activityType] of [["mod/assign", "assign"], ["mod/quiz", "quiz"]]) {
-      for (const a of doc.querySelectorAll(`a[href*="${hk}"]`)) {
-        const url = (a.href || "").split("#")[0].trim();
-        if (!url) continue;
-        const title = (a.textContent || "").trim() || url.split("?")[0].split("/").pop() || activityType;
-        if (!found.has(url)) {
-          found.set(url, { id: url, title, subject: courseName, url, activity_type: activityType });
-        }
-      }
-    }
-    return [...found.values()];
-  }
-
-  // ── Moodle AJAX API ──────────────────────────────────────────
-  /**
-   * Moodle 내장 AJAX로 수강 강의 목록 조회.
-   * M.cfg (모든 Moodle 페이지에 존재) → sesskey + userId 사용.
-   */
-  async function fetchCoursesViaApi(origin) {
-    try {
-      const cfg = typeof M !== "undefined" && M.cfg ? M.cfg : null;
-      if (!cfg || !cfg.sesskey || !cfg.userId) return [];
-
-      const res = await fetch(`${origin}/lib/ajax/service.php?sesskey=${cfg.sesskey}`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify([{
-          index: 0,
-          methodname: "core_enrol_get_users_courses",
-          args: { userid: cfg.userId },
-        }]),
-      });
-      if (!res.ok) return [];
-      const json = await res.json();
-      const data = json?.[0]?.data;
-      if (!Array.isArray(data)) return [];
-      return data
-        .filter((c) => c.id && c.fullname)
-        .map((c) => ({ url: `${origin}/course/view.php?id=${c.id}`, name: c.fullname }));
-    } catch {
-      return [];
-    }
-  }
-
-  // ── fetch helper ─────────────────────────────────────────────
-  /** @returns {Promise<string|null>} 404면 null, 그 외 비정상은 throw */
-  async function fetchText(url) {
-    const r = await fetch(url, { credentials: "include", cache: "no-store" });
-    if (r.status === 404) return null;
-    if (!r.ok) throw new Error(`HTTP ${r.status} — ${url}`);
-    return r.text();
+  // ── 마감일 파싱 ───────────────────────────────────────────────
+  /** Canvas API의 due_at (ISO 8601) → 표시용 문자열 */
+  function formatDueAt(dueAt) {
+    if (!dueAt) return "";
+    // ISO 문자열 그대로 반환 (서버에서 파싱)
+    return dueAt;
   }
 
   // ── 메인 수집 함수 ────────────────────────────────────────────
   /**
    * @param {object} options
-   * @param {number} [options.delayMs=300]
+   * @param {number} [options.delayMs=200]
    * @param {function} [options.onProgress] - ({current, total, courseName})
    * @returns {Promise<{error:string|null, items:Array, courses:number, coursesSkipped?:number}>}
    */
   async function collectMyetlAssignments(options) {
     const opts = options || {};
-    const delayMs = typeof opts.delayMs === "number" ? opts.delayMs : 300;
+    const delayMs = typeof opts.delayMs === "number" ? opts.delayMs : 200;
     const onProgress = typeof opts.onProgress === "function" ? opts.onProgress : null;
 
     const origin =
@@ -135,68 +59,78 @@
         ? location.origin
         : "https://myetl.snu.ac.kr";
 
-    // 1) Moodle AJAX API — 가장 신뢰할 수 있는 방법
-    let courses = await fetchCoursesViaApi(origin);
-
-    // 2) 현재 페이지 DOM 파싱 (JavaScript 렌더링 전 정적 링크만 잡힘)
-    if (courses.length === 0 && typeof document !== "undefined") {
-      courses = parseCoursesFromDoc(document);
+    // 1) 수강 강의 목록
+    let courses;
+    try {
+      courses = await fetchAllPages(
+        `${origin}/api/v1/courses?enrollment_state=active&per_page=100`
+      );
+    } catch (e) {
+      return { error: `강의 목록 로드 실패: ${e}`, items: [], courses: 0 };
     }
 
-    // 3) 네트워크 폴백
-    if (courses.length === 0) {
-      for (const path of ["/my/", "/dashboard", "/course/"]) {
-        try {
-          const html = await fetchText(`${origin}${path}`);
-          if (html != null) {
-            courses = parseCoursesFromHtml(html);
-            if (courses.length > 0) break;
-          }
-        } catch {
-          // 다음 경로 시도
-        }
-      }
-    }
+    // 학생으로 등록된 강의만, 최대 60개
+    courses = courses
+      .filter((c) => c.id && c.name && !c.access_restricted_by_date)
+      .slice(0, 60);
 
     if (courses.length === 0) {
       return {
-        error: "강의 목록을 찾을 수 없습니다. myetl에 로그인되어 있는지 확인해주세요.",
+        error: "수강 중인 강의가 없습니다. myetl에 로그인되어 있는지 확인해주세요.",
         items: [],
         courses: 0,
       };
     }
 
-    courses = courses.slice(0, 60);
     const items = [];
     let coursesSkipped = 0;
     let idx = 0;
 
-    for (const c of courses) {
+    for (const course of courses) {
       idx++;
-      if (onProgress) onProgress({ current: idx, total: courses.length, courseName: c.name });
+      if (onProgress) onProgress({ current: idx, total: courses.length, courseName: course.name });
       await sleep(delayMs);
 
-      let courseHtml;
+      // 2) 과제 목록
       try {
-        courseHtml = await fetchText(c.url);
+        const assignments = await fetchAllPages(
+          `${origin}/api/v1/courses/${course.id}/assignments?per_page=100`
+        );
+        for (const a of assignments) {
+          if (!a.id || !a.name) continue;
+          items.push({
+            id: `assign-${a.id}`,
+            title: a.name,
+            subject: course.name,
+            url: a.html_url || `${origin}/courses/${course.id}/assignments/${a.id}`,
+            activity_type: "assign",
+            deadline: formatDueAt(a.due_at),
+          });
+        }
       } catch {
         coursesSkipped++;
-        continue;
       }
-      if (courseHtml == null) { coursesSkipped++; continue; }
 
-      for (const act of parseActivitiesFromCourseHtml(courseHtml, c.name)) {
-        await sleep(delayMs);
-        let deadline = "";
-        try {
-          const body = await fetchText(act.url);
-          if (body != null) {
-            deadline = extractDeadlineFromDoc(new DOMParser().parseFromString(body, "text/html"));
-          }
-        } catch {
-          // 마감일 없이도 수집 계속
+      await sleep(delayMs);
+
+      // 3) 퀴즈 목록
+      try {
+        const quizzes = await fetchAllPages(
+          `${origin}/api/v1/courses/${course.id}/quizzes?per_page=100`
+        );
+        for (const q of quizzes) {
+          if (!q.id || !q.title) continue;
+          items.push({
+            id: `quiz-${q.id}`,
+            title: q.title,
+            subject: course.name,
+            url: q.html_url || `${origin}/courses/${course.id}/quizzes/${q.id}`,
+            activity_type: "quiz",
+            deadline: formatDueAt(q.due_at),
+          });
         }
-        items.push({ ...act, deadline });
+      } catch {
+        // 퀴즈 없어도 계속
       }
     }
 
