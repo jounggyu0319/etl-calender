@@ -2,6 +2,7 @@
 # 시크릿(APP_SECRET_KEY, CRYPTO_KEY, GOOGLE_*, OAuth JSON 경로 등)은 대시보드 Environment / Secret File로만 설정한다.
 # name 은 기본 URL 후보(https://<name>.onrender.com)에 쓰이는 경우가 많음. 최종 퍼블릭 호스트는 대시보드 URL을 따르고,
 # GOOGLE_REDIRECT_URI 는 README대로 https://<실제호스트>/api/oauth/google/callback 한 줄로 맞춘다.
+# DATABASE_URL: Neon 등 외부 Postgres — 대시보드에서 직접 설정(sync: false, Blueprint가 값을 덮어쓰지 않음).
 services:
   - type: web
     name: etl-calendar-sync
@@ -19,12 +20,4 @@ services:
       - key: DEPLOY_ENV
         value: production
       - key: DATABASE_URL
-        fromDatabase:
-          name: etl-calendar-db
-          property: connectionString
-
-databases:
-  - name: etl-calendar-db
-    plan: free
-    databaseName: etlcalendar
-    user: etlcalendar
+        sync: false

@@ -16,6 +16,7 @@ _is_sqlite = _db_url.lower().startswith("sqlite")
 engine = create_engine(
     settings.database_url,
     connect_args={"check_same_thread": False} if _is_sqlite else {},
+    pool_pre_ping=True,  # Neon 등 idle 후 끊긴 연결 재검증
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
