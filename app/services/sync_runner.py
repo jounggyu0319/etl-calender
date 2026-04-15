@@ -92,7 +92,8 @@ def _ical_merge_only(
         if items:
             service, gj = ensure_calendar_service(google_json)
             for it in items:
-                if insert_assignment_calendar_if_absent(service, it):
+                inserted, _, _ = insert_assignment_calendar_if_absent(service, it)
+                if inserted:
                     ics_created_total += 1
             if ics_created_total == 0:
                 hint = (

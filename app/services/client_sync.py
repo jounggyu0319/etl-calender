@@ -20,7 +20,7 @@ from app.schemas import ClientSyncItem, SyncResult
 from app.security import decrypt_text, encrypt_text
 from calendar_service import (
     ensure_calendar_service,
-    insert_assignment_calendar_if_absent_v2,
+    insert_assignment_calendar_if_absent,
     probe_calendar_access,
 )
 from app.services.gemini_classifier import is_exam_schedule_announcement
@@ -141,7 +141,7 @@ def import_from_client(
                 _LOG.info("Gemini: exam 아님, 스킵 → %s", a.get("title", "")[:50])
                 continue
 
-        inserted, existed, err = insert_assignment_calendar_if_absent_v2(service, a)
+        inserted, existed, err = insert_assignment_calendar_if_absent(service, a)
         if inserted:
             created += 1
         elif existed:

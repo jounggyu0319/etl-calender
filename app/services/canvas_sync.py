@@ -275,7 +275,8 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
     service, fresh_google_json = ensure_calendar_service(google_json)
     created = 0
     for it in fresh:
-        if insert_assignment_calendar_if_absent(service, it):
+        inserted, _, _ = insert_assignment_calendar_if_absent(service, it)
+        if inserted:
             created += 1
 
     if fresh_google_json != google_json:

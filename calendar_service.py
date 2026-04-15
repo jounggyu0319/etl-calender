@@ -17,7 +17,6 @@ from googleapiclient.discovery import build
 from app.services.calendar_service import (
     format_calendar_event_description,
     format_calendar_event_summary,
-    normalize_course_display_name,
 )
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
@@ -32,27 +31,14 @@ def credentials_from_authorized_user_json(token_json: str) -> Credentials:
     return Credentials.from_authorized_user_info(info, SCOPES)
 
 
-def get_calendar_service(token_json: str):
-    creds = credentials_from_authorized_user_json(token_json)
-    if creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-    return build("calendar", "v3", credentials=creds, cache_discovery=False)
-
-
 def ensure_calendar_service(token_json: str) -> tuple[object, str]:
-    """
-    만료 시 refresh 후 (service, 최신 credentials JSON) 반환.
-    """
+    """만료 시 refresh 후 (service, 최신 credentials JSON) 반환."""
     creds = credentials_from_authorized_user_json(token_json)
     if creds.expired and creds.refresh_token:
         creds.refresh(Request())
     updated_json = creds.to_json()
     service = build("calendar", "v3", credentials=creds, cache_discovery=False)
     return service, updated_json
-
-
-def serialize_credentials(creds: Credentials) -> str:
-    return creds.to_json()
 
 
 def _allday_end_exclusive(start_date: str) -> str:
@@ -62,18 +48,9 @@ def _allday_end_exclusive(start_date: str) -> str:
 
 
 _MONTHS = {
-    "january": 1,
-    "february": 2,
-    "march": 3,
-    "april": 4,
-    "may": 5,
-    "june": 6,
-    "july": 7,
-    "august": 8,
-    "september": 9,
-    "october": 10,
-    "november": 11,
-    "december": 12,
+    "january": 1, "february": 2, "march": 3, "april": 4,
+    "may": 5, "june": 6, "july": 7, "august": 8,
+    "september": 9, "october": 10, "november": 11, "december": 12,
 }
 
 
@@ -94,29 +71,24 @@ def parse_deadline(deadline_text: str | None) -> dict | None:
         dt = datetime(year, month, day, hour, minute, tzinfo=SEOUL)
         return {"dateTime": dt.isoformat(), "timeZone": "Asia/Seoul"}
 
-    # 한국어 날짜만 (시간 없음) → 종일
     m_ko_day = re.search(r"(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일", text)
     if m_ko_day:
         tail = text[m_ko_day.end() : m_ko_day.end() + 36]
-        # 날짜 직후에 오전/오후가 있으면 시간 있는데 형식이 달라진 경우 → 종일로 오인 방지
         if not re.search(r"(?:오전|오후)", tail):
             y, mo, d = int(m_ko_day.group(1)), int(m_ko_day.group(2)), int(m_ko_day.group(3))
             ds = f"{y:04d}-{mo:02d}-{d:02d}"
             return {"date": ds}
 
-    # English: "May 15, 2026" / "October 1, 2025 2:30 PM" / "15 May 2026"
     m_en = re.search(
         r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+"
         r"(\d{1,2}),?\s+(\d{4})\b(?:\s*[,\s]*(\d{1,2}):(\d{2})\s*(AM|PM|am|pm))?",
-        text,
-        re.I,
+        text, re.I,
     )
     if m_en:
         mon = _MONTHS[m_en.group(1).lower()]
         day, year = int(m_en.group(2)), int(m_en.group(3))
         if m_en.group(4) is None:
-            ds = f"{year:04d}-{mon:02d}-{day:02d}"
-            return {"date": ds}
+            return {"date": f"{year:04d}-{mon:02d}-{day:02d}"}
         hour, minute = int(m_en.group(4)), int(m_en.group(5))
         ap = (m_en.group(6) or "").lower()
         if ap == "pm" and hour != 12:
@@ -128,52 +100,42 @@ def parse_deadline(deadline_text: str | None) -> dict | None:
 
     m_en2 = re.search(
         r"\b(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b",
-        text,
-        re.I,
+        text, re.I,
     )
     if m_en2:
         day = int(m_en2.group(1))
         mon = _MONTHS[m_en2.group(2).lower()]
         year = int(m_en2.group(3))
-        ds = f"{year:04d}-{mon:02d}-{day:02d}"
-        return {"date": ds}
+        return {"date": f"{year:04d}-{mon:02d}-{day:02d}"}
 
-    # English: "May 15" / "May 15, 2026" (month before day, no comma year optional)
     m_en_short = re.search(
         r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+"
         r"(\d{1,2})(?:,?\s*(\d{4}))?\b",
-        text,
-        re.I,
+        text, re.I,
     )
     if m_en_short:
         mon = _MONTHS[m_en_short.group(1).lower()]
         day = int(m_en_short.group(2))
         year = int(m_en_short.group(3)) if m_en_short.group(3) else datetime.now(SEOUL).year
-        ds = f"{year:04d}-{mon:02d}-{day:02d}"
-        return {"date": ds}
+        return {"date": f"{year:04d}-{mon:02d}-{day:02d}"}
 
-    # English: "15th of May 2026" / "15th of May"
     m_en_ord = re.search(
         r"\b(\d{1,2})(?:st|nd|rd|th)\s+of\s+(January|February|March|April|May|June|July|August|September|October|November|December)"
         r"(?:\s*,?\s*(\d{4}))?\b",
-        text,
-        re.I,
+        text, re.I,
     )
     if m_en_ord:
         day = int(m_en_ord.group(1))
         mon = _MONTHS[m_en_ord.group(2).lower()]
         year = int(m_en_ord.group(3)) if m_en_ord.group(3) else datetime.now(SEOUL).year
-        ds = f"{year:04d}-{mon:02d}-{day:02d}"
-        return {"date": ds}
+        return {"date": f"{year:04d}-{mon:02d}-{day:02d}"}
 
-    # Numeric: MM/DD/YYYY or M/D/YYYY
     m_slash_full = re.search(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b", text)
     if m_slash_full:
         mo, d, y = int(m_slash_full.group(1)), int(m_slash_full.group(2)), int(m_slash_full.group(3))
         if 1 <= mo <= 12 and 1 <= d <= 31:
             return {"date": f"{y:04d}-{mo:02d}-{d:02d}"}
 
-    # Numeric: MM/DD (연도 없음 → 올해)
     m_slash_short = re.search(r"(?<![\d/])(\d{1,2})/(\d{1,2})(?![\d/])", text)
     if m_slash_short:
         mo, d = int(m_slash_short.group(1)), int(m_slash_short.group(2))
@@ -181,8 +143,7 @@ def parse_deadline(deadline_text: str | None) -> dict | None:
         if 1 <= mo <= 12 and 1 <= d <= 31:
             return {"date": f"{y:04d}-{mo:02d}-{d:02d}"}
 
-    # Korean: "5월 15일" (연도 없음 → 올해)
-    # 본문에 여러 날짜가 있을 경우: 오늘 이후의 가장 가까운 미래 날짜 우선, 없으면 첫 번째
+    # Korean: "N월 N일" (연도 없음 → 올해) — 복수 날짜 시 미래 날짜 우선
     ko_md_candidates = list(re.finditer(r"(?<!\d)(\d{1,2})월\s*(\d{1,2})일", text))
     if ko_md_candidates:
         y = datetime.now(SEOUL).year
@@ -198,18 +159,15 @@ def parse_deadline(deadline_text: str | None) -> dict | None:
                 except ValueError:
                     continue
         if future_dates:
-            # 미래 날짜 중 가장 가까운 것, 없으면 첫 번째
             future_only = [(c, mo, d) for c, mo, d in future_dates if c >= today]
             chosen = min(future_only, key=lambda x: x[0]) if future_only else future_dates[0]
             _, mo, d = chosen
             return {"date": f"{y:04d}-{mo:02d}-{d:02d}"}
 
-    # YYYY-MM-DD (시간·T 없음) → 종일
     m_day = re.search(r"(?<![\d-])(\d{4}-\d{2}-\d{2})(?![\dT])", text)
     if m_day:
         return {"date": m_day.group(1)}
 
-    # ISO-8601 (Moodle 영문 로케일 등)
     m_iso = re.search(
         r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:[+-]\d{2}:\d{2}|Z)?",
         text,
@@ -303,18 +261,16 @@ def probe_calendar_access(service) -> str | None:
         return None
     except Exception as exc:
         msg = str(exc)
-        print(f"[ETL] Google Calendar 접근 오류: {msg}", flush=True)
         _CAL_LOG.error("Google Calendar 접근 오류: %s", msg)
         return msg
 
 
-def _insert_assignment_calendar_event(service, assignment: dict, etl_id: str) -> bool:
+def _build_calendar_event(assignment: dict, etl_id: str) -> dict:
+    """캘린더 이벤트 dict 생성 (단일 구현)."""
     start, end = _resolve_google_event_start_end(assignment)
-
     summary = format_calendar_event_summary(assignment)[:1020]
     desc_body = format_calendar_event_description(assignment)
-
-    event = {
+    return {
         "summary": summary,
         "description": desc_body,
         "start": start,
@@ -329,79 +285,39 @@ def _insert_assignment_calendar_event(service, assignment: dict, etl_id: str) ->
         "colorId": "11",
         "extendedProperties": {"private": {PRIVATE_ETL_KEY: etl_id[:1024]}},
     }
-    try:
-        service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
-        return True
-    except Exception as exc:
-        msg = str(exc)
-        print(f"[ETL] Calendar event insert 실패 (etl_id={etl_id}): {msg}", flush=True)
-        _CAL_LOG.exception("Calendar event insert 실패 (etl_id=%s): %s", etl_id, exc)
-        return False
 
 
-def add_assignment_to_calendar(service, assignment: dict) -> bool:
-    etl_id = _etl_id_for_calendar(assignment)
-    if calendar_event_exists_with_etl_id(service, etl_id):
-        return True
-    return _insert_assignment_calendar_event(service, assignment, etl_id)
-
-
-def insert_assignment_calendar_if_absent(service, assignment: dict) -> bool:
-    """동일 etl_id 일정이 Google에 없을 때만 insert. 새로 만든 경우에만 True."""
-    etl_id = _etl_id_for_calendar(assignment)
-    exists = calendar_event_exists_with_etl_id(service, etl_id)
-    print(f"[ETL] check etl_id={etl_id[:20]}... exists={exists}", flush=True)
-    if exists:
-        return False
-    result = _insert_assignment_calendar_event(service, assignment, etl_id)
-    print(f"[ETL] insert result={result} etl_id={etl_id[:20]}...", flush=True)
-    return result
-
-
-def insert_assignment_calendar_if_absent_v2(
+def insert_assignment_calendar_if_absent(
     service, assignment: dict
 ) -> tuple[bool, bool, str | None]:
     """동일 etl_id 일정이 Google에 없을 때만 insert.
+
     반환: (inserted, skipped_existing, error_msg)
+    - inserted=True: 새로 추가됨
+    - skipped_existing=True: 이미 존재해서 스킵
+    - error_msg: insert 실패 시 오류 메시지
     """
     etl_id = _etl_id_for_calendar(assignment)
-    exists = calendar_event_exists_with_etl_id(service, etl_id)
-    print(f"[ETL] check etl_id={etl_id[:20]}... exists={exists}", flush=True)
-    if exists:
+    if calendar_event_exists_with_etl_id(service, etl_id):
+        _CAL_LOG.debug("이미 존재 스킵 etl_id=%s", etl_id[:20])
         return False, True, None
 
-    start, end = _resolve_google_event_start_end(assignment)
-    summary = format_calendar_event_summary(assignment)[:1020]
-    desc_body = format_calendar_event_description(assignment)
-    event = {
-        "summary": summary,
-        "description": desc_body,
-        "start": start,
-        "end": end,
-        "reminders": {
-            "useDefault": False,
-            "overrides": [
-                {"method": "popup", "minutes": 60 * 24},
-                {"method": "popup", "minutes": 60},
-            ],
-        },
-        "colorId": "11",
-        "extendedProperties": {"private": {PRIVATE_ETL_KEY: etl_id[:1024]}},
-    }
+    event = _build_calendar_event(assignment, etl_id)
     try:
         service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
-        print(f"[ETL] insert OK summary={summary!r}", flush=True)
+        _CAL_LOG.info("캘린더 추가 완료: %s", event["summary"])
         return True, False, None
     except Exception as exc:
         msg = str(exc)
-        print(f"[ETL] insert FAIL etl_id={etl_id[:20]}... err={msg}", flush=True)
         _CAL_LOG.exception("Calendar event insert 실패 (etl_id=%s): %s", etl_id, exc)
         return False, False, msg
 
 
 def sync_assignments_to_calendar(service, assignments: list[dict]) -> int:
+    """일괄 insert, 새로 추가된 건수 반환."""
     ok = 0
     for a in assignments:
-        if insert_assignment_calendar_if_absent(service, a):
+        inserted, _, _ = insert_assignment_calendar_if_absent(service, a)
+        if inserted:
             ok += 1
     return ok

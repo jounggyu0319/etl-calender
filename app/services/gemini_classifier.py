@@ -57,23 +57,33 @@ def is_exam_schedule_announcement(
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    try:
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        text = (
-            data.get("candidates", [{}])[0]
-            .get("content", {})
-            .get("parts", [{}])[0]
-            .get("text", "")
-            .strip()
-            .upper()
-        )
-        result = text.startswith("YES")
-        _LOG.info("Gemini 분류 [%s] → %s", title[:40], "YES" if result else "NO")
-        return result
-    except urllib.error.HTTPError as exc:
-        _LOG.warning("Gemini API HTTP %s: %s", exc.code, exc.reason)
-        return True  # fallback: 포함
-    except Exception as exc:
-        _LOG.warning("Gemini API 오류: %s", exc)
-        return True  # fallback: 포함
+    for attempt in range(2):  # 429(rate limit) 시 1회 재시도
+        try:
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            text = (
+                data.get("candidates", [{}])[0]
+                .get("content", {})
+                .get("parts", [{}])[0]
+                .get("text", "")
+                .strip()
+                .upper()
+            )
+            result = text.startswith("YES")
+            _LOG.info("Gemini 분류 [%s] → %s", title[:40], "YES" if result else "NO")
+            return result
+        except urllib.error.HTTPError as exc:
+            if exc.code == 401:
+                # 인증 오류 — API 키 문제, 설정 확인 필요
+                _LOG.error("Gemini API 인증 오류(401): GEMINI_API_KEY를 확인하세요.")
+                return True
+            if exc.code == 429 and attempt == 0:
+                # 요청 초과 — 2초 후 재시도
+                import time; time.sleep(2)
+                continue
+            _LOG.warning("Gemini API HTTP %s: %s", exc.code, exc.reason)
+            return True
+        except Exception as exc:
+            _LOG.warning("Gemini API 오류: %s", exc)
+            return True
+    return True
