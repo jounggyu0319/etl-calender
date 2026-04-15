@@ -1,7 +1,7 @@
 {
   "version": "2.1.4",
   "project": "etl-calendar",
-  "activeFeature": "remove-seen-assignment-ids",
+  "activeFeature": "calendar-event-title-format",
   "phase": "act",
   "iteration": 1,
   "lastUpdated": "2026-04-15",
@@ -98,6 +98,18 @@
         "✅ models: seen_assignment_ids 필드 제거(DB DROP 없음)",
         "✅ client_sync / canvas_sync / sync_runner / auto_sync: seen_* 제거, iCal·Canvas는 전 후보에 대해 etl_id 조회",
         "✅ tests/test_client_sync_api: mock 경로·2차 동기화 기대값 갱신"
+      ]
+    },
+    "calendar-event-title-format": {
+      "phase": "act",
+      "status": "done",
+      "problem": "캘린더 제목에 학기 코드·섹션 번호가 그대로 노출되고 메모 형식이 산만함",
+      "tasks": [
+        "✅ app/services/calendar_service.py: 과목명 정리·시험 키워드 감지·제목/메모 포맷",
+        "✅ 루트 calendar_service: 이벤트 insert 시 포맷 함수 사용",
+        "✅ canvas_sync: Canvas description → description_extra",
+        "✅ moodle_ics: ICS DESCRIPTION → description_extra",
+        "✅ tests: normalize·format_calendar_event_summary 단위 테스트"
       ]
     },
     "auto-sync": {

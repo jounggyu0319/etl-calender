@@ -239,16 +239,18 @@ def ical_to_assignment_items(ics_text: str) -> list[dict]:
         if loc:
             subj = f"eTL 캘린더 · {loc[:60]}"
 
-        out.append(
-            {
-                "id": eid,
-                "title": summary[:500],
-                "subject": subj,
-                "url": link[:2000],
-                "activity_type": "ical_feed",
-                "deadline": deadline,
-            }
-        )
+        row: dict = {
+            "id": eid,
+            "title": summary[:500],
+            "subject": subj,
+            "url": link[:2000],
+            "activity_type": "ical_feed",
+            "deadline": deadline,
+        }
+        desc_plain = str(desc or "").strip()
+        if desc_plain:
+            row["description_extra"] = desc_plain[:7000]
+        out.append(row)
         if len(out) <= 3:
             logger.info(
                 "[iCal] 샘플 이벤트(icalendar): SUMMARY=%r DTSTART=%r DTEND=%r DESCRIPTION_앞50자=%r",

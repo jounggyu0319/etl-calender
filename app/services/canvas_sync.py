@@ -21,6 +21,14 @@ logger = logging.getLogger(__name__)
 MYETL_CANVAS_BASE = "https://myetl.snu.ac.kr"
 
 
+def _canvas_html_to_plain(html: Any, limit: int = 6000) -> str:
+    if html is None or not isinstance(html, str):
+        return ""
+    t = re.sub(r"<[^>]+>", " ", html)
+    t = re.sub(r"\s+", " ", t).strip()
+    return t[:limit]
+
+
 def _parse_next_link(link_header: str | None) -> str | None:
     if not link_header:
         return None
@@ -167,6 +175,7 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
             aid = int(aid_raw)
             included_assign_ids.add(aid)
             eid = f"canvas-{cid}-assign-{aid}"
+            desc_plain = _canvas_html_to_plain(a.get("description"))
             fresh.append(
                 {
                     "id": eid,
@@ -176,6 +185,7 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
                     or f"{MYETL_CANVAS_BASE}/courses/{cid}/assignments/{aid}",
                     "activity_type": "assign",
                     "deadline": str(due).strip(),
+                    **({"description_extra": desc_plain} if desc_plain else {}),
                 }
             )
             assign_n += 1
@@ -192,6 +202,7 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
                 continue
             qid = int(qid_raw)
             eid = f"canvas-{cid}-quiz-{qid}"
+            qdesc_plain = _canvas_html_to_plain(q.get("description"))
             fresh.append(
                 {
                     "id": eid,
@@ -201,6 +212,7 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
                     or f"{MYETL_CANVAS_BASE}/courses/{cid}/quizzes/{qid}",
                     "activity_type": "quiz",
                     "deadline": str(due).strip(),
+                    **({"description_extra": qdesc_plain} if qdesc_plain else {}),
                 }
             )
             quiz_n += 1

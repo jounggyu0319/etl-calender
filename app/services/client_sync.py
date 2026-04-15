@@ -2,6 +2,7 @@
 
 Google 일정 중복 방지는 `calendar_service.insert_assignment_calendar_if_absent`가
 `extendedProperties.private.etl_id` 로 Google Calendar API를 조회해 판단합니다.
+일정 제목·메모 형식은 `app.services.calendar_service`의 `format_calendar_event_*` 에서 통일합니다.
 """
 
 from __future__ import annotations

@@ -14,6 +14,12 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
+from app.services.calendar_service import (
+    format_calendar_event_description,
+    format_calendar_event_summary,
+    normalize_course_display_name,
+)
+
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 CALENDAR_ID = "primary"
 SEOUL = timezone(timedelta(hours=9))
@@ -243,25 +249,6 @@ def calendar_event_exists_with_etl_id(service, etl_id: str) -> bool:
 
 def _insert_assignment_calendar_event(service, assignment: dict, etl_id: str) -> bool:
     deadline = parse_deadline(assignment.get("deadline"))
-    kind = assignment.get("activity_type") or "assign"
-    if kind == "quiz":
-        label = "퀴즈·시험"
-        desc_kind = "eTL 퀴즈/시험(Moodle). 중간·기말 여부는 제목·강의 공지를 확인하세요."
-    elif kind == "announcement_midterm":
-        label = "공지·중간"
-        desc_kind = "eTL 강의 공지/포럼 등에서 자동 감지한 중간고사 관련 문구입니다. 일정은 반드시 공지 원문을 확인하세요."
-    elif kind == "announcement_final":
-        label = "공지·기말"
-        desc_kind = "eTL 강의 공지/포럼 등에서 자동 감지한 기말고사 관련 문구입니다. 일정은 반드시 공지 원문을 확인하세요."
-    elif kind == "ical_feed":
-        label = "iCal"
-        desc_kind = "eTL Moodle «캘린더보내기» 구독 URL에서 가져온 일정입니다. 세부는 myetl 캘린더 원본을 확인하세요."
-    elif kind == "forum_notice":
-        label = "공지·포럼"
-        desc_kind = "eTL 강의 공지(포럼)에서 키워드로 찾은 글입니다. 일정·마감은 원문을 반드시 확인하세요."
-    else:
-        label = "과제"
-        desc_kind = "eTL 과제"
 
     if not deadline:
         today = datetime.now(SEOUL).strftime("%Y-%m-%d")
@@ -277,12 +264,12 @@ def _insert_assignment_calendar_event(service, assignment: dict, etl_id: str) ->
         start = deadline
         end = {"dateTime": end_dt.isoformat(), "timeZone": "Asia/Seoul"}
 
-    extra_desc = (assignment.get("description_extra") or "").strip()
-    desc_body = f"{desc_kind}\n{extra_desc}\n링크: {assignment.get('url', '')}" if extra_desc else f"{desc_kind}\n링크: {assignment.get('url', '')}"
+    summary = format_calendar_event_summary(assignment)[:1020]
+    desc_body = format_calendar_event_description(assignment)
 
     event = {
-        "summary": f"[{assignment['subject']}] [{label}] {assignment['title']}",
-        "description": desc_body[:8000],
+        "summary": summary,
+        "description": desc_body,
         "start": start,
         "end": end,
         "reminders": {

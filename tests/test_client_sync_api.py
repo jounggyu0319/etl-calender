@@ -158,6 +158,49 @@ class TestCalendarParse(unittest.TestCase):
         self.assertIsNotNone(d)
         self.assertIn("dateTime", d)
 
+    def test_normalize_course_display_name(self) -> None:
+        from calendar_service import normalize_course_display_name
+
+        self.assertEqual(
+            normalize_course_display_name("2026-1 강체동역학 (002)"),
+            "강체동역학",
+        )
+        self.assertEqual(normalize_course_display_name("  미적분학 (001) "), "미적분학")
+
+    def test_format_calendar_event_summary_assign_and_exam(self) -> None:
+        from calendar_service import format_calendar_event_summary
+
+        base = {
+            "subject": "2026-1 강체동역학 (002)",
+            "activity_type": "assign",
+        }
+        self.assertEqual(
+            format_calendar_event_summary({**base, "title": "HW#3"}),
+            "강체동역학_HW#3",
+        )
+        self.assertEqual(
+            format_calendar_event_summary({**base, "title": "중간고사 범위 공지"}),
+            "강체동역학_중간고사",
+        )
+        self.assertEqual(
+            format_calendar_event_summary({**base, "title": "Midterm Exam"}),
+            "강체동역학_중간고사",
+        )
+        self.assertEqual(
+            format_calendar_event_summary({**base, "title": "기말고사 안내"}),
+            "강체동역학_기말고사",
+        )
+        self.assertEqual(
+            format_calendar_event_summary({**base, "title": "Final presentation"}),
+            "강체동역학_기말고사",
+        )
+        self.assertEqual(
+            format_calendar_event_summary(
+                {"subject": "물리", "title": "x", "activity_type": "announcement_midterm"}
+            ),
+            "물리_중간고사",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
