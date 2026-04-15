@@ -117,7 +117,24 @@
       };
     }
 
-    const list = courses.slice(0, 60);
+    // 현재 학기 구간과 겹치는 강의만 스캔
+    const [semStart, semEnd] = pickDueFilterWindowMs();
+    const list = courses.filter((c) => {
+      // Canvas term 정보 우선
+      const termStart = c.term?.start_at ? Date.parse(c.term.start_at) : null;
+      const termEnd   = c.term?.end_at   ? Date.parse(c.term.end_at)   : null;
+      if (termStart !== null && termEnd !== null) {
+        return termStart <= semEnd && termEnd >= semStart;
+      }
+      // term 없으면 course 자체 start_at/end_at
+      const cStart = c.start_at ? Date.parse(c.start_at) : null;
+      const cEnd   = c.end_at   ? Date.parse(c.end_at)   : null;
+      if (cStart !== null && cEnd !== null) {
+        return cStart <= semEnd && cEnd >= semStart;
+      }
+      // 날짜 정보가 전혀 없으면 포함 (안전하게)
+      return true;
+    }).slice(0, 60);
     const items = [];
     let coursesSkipped = 0;
     let idx = 0;
