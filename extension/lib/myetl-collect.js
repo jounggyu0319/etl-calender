@@ -110,11 +110,24 @@
     return null;
   }
 
+  /** 본문 평문에 "N월 N일" 형태 날짜가 있으면 true */
+  function bodyHasDateHint(plainText) {
+    return /\d{1,2}월\s*\d{1,2}일/.test(plainText);
+  }
+
+  /**
+   * 공지 제목이 시험 일정 공지인지 판단.
+   * "중간고사 대비용 문제", "기출 자료" 같은 자료성 공지는 제외.
+   */
   function announcementMatchesExamTitle(title) {
-    if (!examKindFromTitle(title)) {
-      const x = title || "";
-      if (/\btest\b/i.test(x.toLowerCase())) return true;
-      return ["시험 안내", "시험일정", "시험 일정", "시험일"].some((k) => x.includes(k));
+    const t = (title || "").trim();
+    // 자료·준비물 공지 — 시험 날짜와 무관 → 제외
+    const materialKeywords = ["대비용", "대비 문제", "기출", "연습문제", "올려드렸", "자료 올"];
+    if (materialKeywords.some((k) => t.includes(k))) return false;
+
+    if (!examKindFromTitle(t)) {
+      if (/\btest\b/i.test(t.toLowerCase())) return true;
+      return ["시험 안내", "시험일정", "시험 일정", "시험일"].some((k) => t.includes(k));
     }
     return true;
   }
@@ -280,6 +293,11 @@
         if (tid == null) continue;
         // 본문에서 날짜 추출 시도 — 서버 parse_deadline()이 "4월 23일" 등을 인식
         const bodyText = stripHtml(topic.message || "");
+        // 본문에 날짜도 없고, 제목에 "일정/안내/공지/날짜" 같은 명확한 일정어도 없으면 스킵
+        const scheduleWords = ["일정", "안내", "공지", "날짜", "시간", "장소", "변경", "연기"];
+        const titleHasScheduleWord = scheduleWords.some((k) => title.includes(k));
+        if (!bodyHasDateHint(bodyText) && !titleHasScheduleWord) continue;
+
         items.push({
           id: `canvas-${cid}-announce-${tid}`,
           title,
