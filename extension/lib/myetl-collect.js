@@ -122,8 +122,12 @@
     }
 
     if (courses.length === 0) {
+      // 캘린더 페이지는 강의 링크가 없음 → 안내 메시지 특화
+      const isCalendar = typeof location !== "undefined" && location.pathname.includes("/calendar");
       return {
-        error: "강의 목록을 찾을 수 없습니다. myetl에 로그인 후 강의가 있는 페이지에서 시도해주세요.",
+        error: isCalendar
+          ? "캘린더 페이지에서는 강의 목록을 찾을 수 없습니다. 강의 페이지(과목 클릭)로 이동 후 다시 시도해주세요."
+          : "강의 목록을 찾을 수 없습니다. myetl에 로그인 후 강의 페이지에서 시도해주세요.",
         items: [],
         courses: 0,
       };
