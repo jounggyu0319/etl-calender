@@ -281,6 +281,18 @@ def calendar_event_exists_with_etl_id(service, etl_id: str) -> bool:
         return False
 
 
+def probe_calendar_access(service) -> str | None:
+    """Google Calendar API 접근 가능 여부 확인. 오류 시 오류 메시지 반환, 정상이면 None."""
+    try:
+        service.events().list(calendarId=CALENDAR_ID, maxResults=1).execute()
+        return None
+    except Exception as exc:
+        msg = str(exc)
+        print(f"[ETL] Google Calendar 접근 오류: {msg}", flush=True)
+        _CAL_LOG.error("Google Calendar 접근 오류: %s", msg)
+        return msg
+
+
 def _insert_assignment_calendar_event(service, assignment: dict, etl_id: str) -> bool:
     start, end = _resolve_google_event_start_end(assignment)
 
@@ -306,6 +318,8 @@ def _insert_assignment_calendar_event(service, assignment: dict, etl_id: str) ->
         service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
         return True
     except Exception as exc:
+        msg = str(exc)
+        print(f"[ETL] Calendar event insert 실패 (etl_id={etl_id}): {msg}", flush=True)
         _CAL_LOG.exception("Calendar event insert 실패 (etl_id=%s): %s", etl_id, exc)
         return False
 

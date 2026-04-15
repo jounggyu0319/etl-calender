@@ -14,7 +14,7 @@ from app.config import Settings
 from app.models import User
 from app.schemas import ClientSyncItem, SyncResult
 from app.security import decrypt_text, encrypt_text
-from calendar_service import ensure_calendar_service, insert_assignment_calendar_if_absent
+from calendar_service import ensure_calendar_service, insert_assignment_calendar_if_absent, probe_calendar_access
 
 
 def import_from_client(
@@ -83,7 +83,40 @@ def import_from_client(
             login_note="클라이언트 동기화",
         )
 
-    service, fresh_google_json = ensure_calendar_service(google_json)
+    try:
+        service, fresh_google_json = ensure_calendar_service(google_json)
+    except Exception as exc:
+        err_msg = str(exc)
+        print(f"[ETL] ensure_calendar_service 실패: {err_msg}", flush=True)
+        return SyncResult(
+            new_assignments=len(fresh),
+            calendar_events_created=0,
+            ics_events_created=0,
+            message=f"Google Calendar 서비스 초기화 오류: {err_msg}",
+            login_ok=True,
+            courses_found=len(course_subjects),
+            assign_links_found=assign_n,
+            quiz_links_found=quiz_n,
+            announcement_keyword_hits=ann_n,
+            login_note="클라이언트 동기화",
+        )
+
+    # Verify Calendar API access before attempting inserts
+    probe_err = probe_calendar_access(service)
+    if probe_err:
+        return SyncResult(
+            new_assignments=len(fresh),
+            calendar_events_created=0,
+            ics_events_created=0,
+            message=f"Google Calendar 접근 오류 (재연동 필요): {probe_err}",
+            login_ok=True,
+            courses_found=len(course_subjects),
+            assign_links_found=assign_n,
+            quiz_links_found=quiz_n,
+            announcement_keyword_hits=ann_n,
+            login_note="클라이언트 동기화",
+        )
+
     created = 0
     for a in fresh:
         if insert_assignment_calendar_if_absent(service, a):
