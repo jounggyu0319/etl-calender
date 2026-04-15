@@ -334,9 +334,54 @@ def add_assignment_to_calendar(service, assignment: dict) -> bool:
 def insert_assignment_calendar_if_absent(service, assignment: dict) -> bool:
     """동일 etl_id 일정이 Google에 없을 때만 insert. 새로 만든 경우에만 True."""
     etl_id = _etl_id_for_calendar(assignment)
-    if calendar_event_exists_with_etl_id(service, etl_id):
+    exists = calendar_event_exists_with_etl_id(service, etl_id)
+    print(f"[ETL] check etl_id={etl_id[:20]}... exists={exists}", flush=True)
+    if exists:
         return False
-    return _insert_assignment_calendar_event(service, assignment, etl_id)
+    result = _insert_assignment_calendar_event(service, assignment, etl_id)
+    print(f"[ETL] insert result={result} etl_id={etl_id[:20]}...", flush=True)
+    return result
+
+
+def insert_assignment_calendar_if_absent_v2(
+    service, assignment: dict
+) -> tuple[bool, bool, str | None]:
+    """동일 etl_id 일정이 Google에 없을 때만 insert.
+    반환: (inserted, skipped_existing, error_msg)
+    """
+    etl_id = _etl_id_for_calendar(assignment)
+    exists = calendar_event_exists_with_etl_id(service, etl_id)
+    print(f"[ETL] check etl_id={etl_id[:20]}... exists={exists}", flush=True)
+    if exists:
+        return False, True, None
+
+    start, end = _resolve_google_event_start_end(assignment)
+    summary = format_calendar_event_summary(assignment)[:1020]
+    desc_body = format_calendar_event_description(assignment)
+    event = {
+        "summary": summary,
+        "description": desc_body,
+        "start": start,
+        "end": end,
+        "reminders": {
+            "useDefault": False,
+            "overrides": [
+                {"method": "popup", "minutes": 60 * 24},
+                {"method": "popup", "minutes": 60},
+            ],
+        },
+        "colorId": "11",
+        "extendedProperties": {"private": {PRIVATE_ETL_KEY: etl_id[:1024]}},
+    }
+    try:
+        service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
+        print(f"[ETL] insert OK summary={summary!r}", flush=True)
+        return True, False, None
+    except Exception as exc:
+        msg = str(exc)
+        print(f"[ETL] insert FAIL etl_id={etl_id[:20]}... err={msg}", flush=True)
+        _CAL_LOG.exception("Calendar event insert 실패 (etl_id=%s): %s", etl_id, exc)
+        return False, False, msg
 
 
 def sync_assignments_to_calendar(service, assignments: list[dict]) -> int:

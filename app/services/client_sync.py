@@ -14,7 +14,11 @@ from app.config import Settings
 from app.models import User
 from app.schemas import ClientSyncItem, SyncResult
 from app.security import decrypt_text, encrypt_text
-from calendar_service import ensure_calendar_service, insert_assignment_calendar_if_absent, probe_calendar_access
+from calendar_service import (
+    ensure_calendar_service,
+    insert_assignment_calendar_if_absent_v2,
+    probe_calendar_access,
+)
 
 
 def import_from_client(
@@ -118,25 +122,38 @@ def import_from_client(
         )
 
     created = 0
+    skipped = 0
+    first_err: str | None = None
     for a in fresh:
-        if insert_assignment_calendar_if_absent(service, a):
+        inserted, existed, err = insert_assignment_calendar_if_absent_v2(service, a)
+        if inserted:
             created += 1
+        elif existed:
+            skipped += 1
+        elif err and first_err is None:
+            first_err = err
 
     if fresh_google_json != google_json:
         user.google_creds_enc = encrypt_text(fresh_google_json, settings)
     db.add(user)
     db.commit()
 
-    partial = created < len(fresh)
+    print(f"[ETL] sync done: created={created} skipped={skipped} err={first_err}", flush=True)
+
+    if first_err:
+        msg = f"Google Calendar 추가 오류: {first_err}"
+    elif skipped == len(fresh):
+        msg = "모든 항목이 이미 캘린더에 있습니다. (중복 방지)"
+    elif created < len(fresh) - skipped:
+        msg = "일부 항목을 추가하지 못했습니다. Google 재연동을 시도해 주세요."
+    else:
+        msg = None
+
     return SyncResult(
         new_assignments=len(fresh),
         calendar_events_created=created,
         ics_events_created=0,
-        message=(
-            "Google Calendar에 추가되지 않은 항목이 있습니다. 토큰·쿼터를 확인해 주세요."
-            if partial
-            else None
-        ),
+        message=msg,
         login_ok=True,
         courses_found=len(course_subjects),
         assign_links_found=assign_n,
