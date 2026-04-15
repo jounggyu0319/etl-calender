@@ -226,6 +226,40 @@ def _etl_id_for_calendar(assignment: dict) -> str:
     return f"etl:noid:{h}"
 
 
+def _resolve_google_event_start_end(assignment: dict) -> tuple[dict, dict]:
+    """due_at → parse_deadline; 없으면 posted_at(종일); 둘 다 없으면 오늘(종일). 시각 이벤트는 1시간."""
+    raw_deadline = assignment.get("deadline")
+    d = None
+    if raw_deadline is not None and str(raw_deadline).strip():
+        d = parse_deadline(str(raw_deadline).strip())
+    if not d:
+        posted = assignment.get("posted_at")
+        if posted is not None and str(posted).strip():
+            raw = str(posted).strip().replace("Z", "+00:00")
+            try:
+                pdt = datetime.fromisoformat(raw)
+                if pdt.tzinfo is None:
+                    pdt = pdt.replace(tzinfo=timezone.utc)
+                pdt = pdt.astimezone(SEOUL)
+                ds = pdt.strftime("%Y-%m-%d")
+                d = {"date": ds}
+            except ValueError:
+                d = None
+    if not d:
+        today = datetime.now(SEOUL).strftime("%Y-%m-%d")
+        d = {"date": today}
+    if "date" in d:
+        d0 = d["date"]
+        start = {"date": d0}
+        end = {"date": _allday_end_exclusive(d0)}
+        return start, end
+    start_dt = datetime.fromisoformat(d["dateTime"])
+    end_dt = start_dt + timedelta(hours=1)
+    start = d
+    end = {"dateTime": end_dt.isoformat(), "timeZone": "Asia/Seoul"}
+    return start, end
+
+
 def calendar_event_exists_with_etl_id(service, etl_id: str) -> bool:
     """primary 캘린더에 extendedProperties.private.etl_id 가 일치하는 일정이 있으면 True."""
     if not etl_id:
@@ -248,21 +282,7 @@ def calendar_event_exists_with_etl_id(service, etl_id: str) -> bool:
 
 
 def _insert_assignment_calendar_event(service, assignment: dict, etl_id: str) -> bool:
-    deadline = parse_deadline(assignment.get("deadline"))
-
-    if not deadline:
-        today = datetime.now(SEOUL).strftime("%Y-%m-%d")
-        start = {"date": today}
-        end = {"date": _allday_end_exclusive(today)}
-    elif "date" in deadline:
-        d0 = deadline["date"]
-        start = {"date": d0}
-        end = {"date": _allday_end_exclusive(d0)}
-    else:
-        start_dt = datetime.fromisoformat(deadline["dateTime"])
-        end_dt = start_dt + timedelta(hours=1)
-        start = deadline
-        end = {"dateTime": end_dt.isoformat(), "timeZone": "Asia/Seoul"}
+    start, end = _resolve_google_event_start_end(assignment)
 
     summary = format_calendar_event_summary(assignment)[:1020]
     desc_body = format_calendar_event_description(assignment)

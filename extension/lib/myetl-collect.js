@@ -56,6 +56,36 @@
     return t >= startMs && t <= endMs;
   }
 
+  /** 공지 posted_at이 학기 구간 안인지 (due와 동일 창) */
+  function isPostedInActiveSemester(isoPosted) {
+    return isDueInActiveSemester(isoPosted);
+  }
+
+  function examKindFromTitle(title) {
+    const s = title || "";
+    const t = s.toLowerCase();
+    if (s.includes("중간고사")) return "midterm";
+    if (t.includes("midterm") || t.includes("mid-term") || t.includes("mid term")) return "midterm";
+    if (s.includes("중간")) return "midterm";
+    if (s.includes("기말고사")) return "final";
+    if (t.includes("final exam")) return "final";
+    if (s.includes("기말")) return "final";
+    if (/\bfinal\b/i.test(t)) return "final";
+    if (s.includes("시험")) return "general";
+    if (/\bexam\b/i.test(t)) return "general";
+    if (/\btest\b/i.test(t)) return "general";
+    return null;
+  }
+
+  function announcementMatchesExamTitle(title) {
+    if (!examKindFromTitle(title)) {
+      const x = title || "";
+      if (/\btest\b/i.test(x.toLowerCase())) return true;
+      return ["시험 안내", "시험일정", "시험 일정", "시험일"].some((k) => x.includes(k));
+    }
+    return true;
+  }
+
   function parseNextFromLink(linkHeader) {
     if (!linkHeader) return null;
     const parts = linkHeader.split(",");
@@ -66,13 +96,6 @@
     return null;
   }
 
-  /** Canvas는 JSON 하이재킹 방지를 위해 응답 앞에 while(1); 를 붙임 — 제거 후 파싱 */
-  async function canvasJson(r) {
-    const text = await r.text();
-    const body = text.startsWith("while(1);") ? text.slice("while(1);".length) : text;
-    return JSON.parse(body);
-  }
-
   async function fetchAllPages(firstUrl, delayMs) {
     const rows = [];
     let url = firstUrl;
@@ -81,7 +104,7 @@
       const r = await fetch(url, { credentials: "include", cache: "no-store" });
       if (r.status === 404) return rows;
       if (!r.ok) throw new Error(`HTTP ${r.status} — ${url}`);
-      const chunk = await canvasJson(r);
+      const chunk = await r.json();
       if (!Array.isArray(chunk)) break;
       rows.push(...chunk);
       url = parseNextFromLink(r.headers.get("Link"));
@@ -109,7 +132,7 @@
     let courses;
     try {
       courses = await fetchAllPages(
-        `${origin}/api/v1/courses?enrollment_state=active&include[]=term&per_page=100`,
+        `${origin}/api/v1/courses?enrollment_state=active&per_page=100`,
         delayMs,
       );
     } catch (e) {
@@ -124,48 +147,7 @@
       };
     }
 
-    // 현재 학기 구간과 겹치는 강의만 스캔
-    const [semStart, semEnd] = pickDueFilterWindowMs();
-
-    /** 현재 학기 코드 — 예: "2026-1", "2026-2" */
-    function currentSemesterPrefix() {
-      const now = new Date();
-      const nowMs = now.getTime();
-      const y = now.getFullYear();
-      const windows = instructionalWindowsForYear(y);
-      // 1학기(0), 여름(1), 2학기(2), 겨울(3)
-      const labels = [`${y}-1`, `${y}-여름`, `${y}-2`, `${y}-겨울`];
-      for (let i = 0; i < windows.length; i++) {
-        if (nowMs >= windows[i][0] && nowMs <= windows[i][1]) return labels[i];
-      }
-      // 방학 중이면 다음 학기
-      for (let i = 0; i < windows.length; i++) {
-        if (nowMs < windows[i][0]) return labels[i];
-      }
-      return `${y}-2`;
-    }
-    const semPrefix = currentSemesterPrefix(); // 예: "2026-1"
-
-    const list = courses.filter((c) => {
-      // 1) Canvas term 날짜 기준
-      const termStart = c.term?.start_at ? Date.parse(c.term.start_at) : null;
-      const termEnd   = c.term?.end_at   ? Date.parse(c.term.end_at)   : null;
-      if (termStart !== null && termEnd !== null) {
-        return termStart <= semEnd && termEnd >= semStart;
-      }
-      // 2) course start_at/end_at 기준
-      const cStart = c.start_at ? Date.parse(c.start_at) : null;
-      const cEnd   = c.end_at   ? Date.parse(c.end_at)   : null;
-      if (cStart !== null && cEnd !== null) {
-        return cStart <= semEnd && cEnd >= semStart;
-      }
-      // 3) 강의명 앞 "YYYY-N" 패턴 폴백 — 예: "2026-1 강체동역학"
-      const name = (c.name || c.course_code || "").trim();
-      const m = name.match(/^(\d{4}-\d)/);
-      if (m) return m[1] === semPrefix;
-      // 날짜·이름 정보 모두 없으면 포함
-      return true;
-    }).slice(0, 60);
+    const list = courses.slice(0, 60);
     const items = [];
     let coursesSkipped = 0;
     let idx = 0;
@@ -223,6 +205,37 @@
           url: (q.html_url || "").trim() || `${origin}/courses/${cid}/quizzes/${q.id}`,
           activity_type: "quiz",
           deadline: due,
+        });
+      }
+
+      let announcements = [];
+      try {
+        announcements = await fetchAllPages(
+          `${origin}/api/v1/courses/${cid}/discussion_topics?only_announcements=true&per_page=50`,
+          delayMs,
+        );
+      } catch {
+        /* 권한 없거나 API 없음 */
+      }
+
+      for (const topic of announcements) {
+        const title = (topic.title || "").trim();
+        if (!title || !announcementMatchesExamTitle(title)) continue;
+        const posted = topic.posted_at || topic.delayed_post_at;
+        if (!isPostedInActiveSemester(posted)) continue;
+        const tid = topic.id;
+        if (tid == null) continue;
+        items.push({
+          id: `canvas-${cid}-announce-${tid}`,
+          title,
+          subject: subj,
+          url:
+            (topic.html_url || "").trim() ||
+            `${origin}/courses/${cid}/discussion_topics/${tid}`,
+          activity_type: "exam",
+          deadline: "",
+          posted_at: posted || "",
+          description_extra: title,
         });
       }
     }

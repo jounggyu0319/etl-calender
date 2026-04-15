@@ -45,7 +45,7 @@ class MoodleCalendarFeedUpdate(BaseModel):
 
 
 class ClientSyncItem(BaseModel):
-    """확장·데스크톱 WebView가 myetl에서 수집한 단일 활동(과제/퀴즈 등)."""
+    """확장·데스크톱 WebView가 myetl에서 수집한 단일 활동(과제/퀴즈/시험 공지 등)."""
 
     id: str = Field(min_length=1, max_length=2048)
     title: str = Field(min_length=1, max_length=512)
@@ -53,6 +53,8 @@ class ClientSyncItem(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
     activity_type: str = Field(default="assign", max_length=64)
     deadline: str = Field(default="", max_length=2048)
+    posted_at: str = Field(default="", max_length=2048)
+    description_extra: str = Field(default="", max_length=8000)
 
 
 class ClientSyncImport(BaseModel):

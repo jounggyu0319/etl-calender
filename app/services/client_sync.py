@@ -3,6 +3,7 @@
 Google 일정 중복 방지는 `calendar_service.insert_assignment_calendar_if_absent`가
 `extendedProperties.private.etl_id` 로 Google Calendar API를 조회해 판단합니다.
 일정 제목·메모 형식은 `app.services.calendar_service`의 `format_calendar_event_*` 에서 통일합니다.
+`activity_type` 이 `exam` 인 항목(시험 공지)은 `posted_at`·`description_extra` 를 넘길 수 있습니다.
 """
 
 from __future__ import annotations
@@ -43,16 +44,21 @@ def import_from_client(
         aid = str(d.get("id") or "").strip()
         if not aid:
             continue
-        fresh.append(
-            {
-                "id": aid,
-                "title": (d.get("title") or "").strip() or aid,
-                "subject": (d.get("subject") or "").strip() or "eTL",
-                "url": (d.get("url") or "").strip() or aid,
-                "activity_type": (d.get("activity_type") or "assign").strip() or "assign",
-                "deadline": (d.get("deadline") or "").strip(),
-            }
-        )
+        row: dict = {
+            "id": aid,
+            "title": (d.get("title") or "").strip() or aid,
+            "subject": (d.get("subject") or "").strip() or "eTL",
+            "url": (d.get("url") or "").strip() or aid,
+            "activity_type": (d.get("activity_type") or "assign").strip() or "assign",
+            "deadline": (d.get("deadline") or "").strip(),
+        }
+        pa = (d.get("posted_at") or "").strip()
+        if pa:
+            row["posted_at"] = pa
+        xtra = (d.get("description_extra") or "").strip()
+        if xtra:
+            row["description_extra"] = xtra
+        fresh.append(row)
 
     assign_n = sum(1 for x in fresh if x.get("activity_type") == "assign")
     quiz_n = sum(1 for x in fresh if x.get("activity_type") == "quiz")

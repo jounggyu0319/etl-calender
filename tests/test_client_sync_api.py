@@ -166,6 +166,12 @@ class TestCalendarParse(unittest.TestCase):
             "강체동역학",
         )
         self.assertEqual(normalize_course_display_name("  미적분학 (001) "), "미적분학")
+        self.assertEqual(
+            normalize_course_display_name(
+                "[2026-1 정치학개론 (001) 2026-1 정치학개론 (001)]"
+            ),
+            "정치학개론",
+        )
 
     def test_format_calendar_event_summary_assign_and_exam(self) -> None:
         from calendar_service import format_calendar_event_summary
@@ -189,6 +195,10 @@ class TestCalendarParse(unittest.TestCase):
         self.assertEqual(
             format_calendar_event_summary({**base, "title": "기말고사 안내"}),
             "강체동역학_기말고사",
+        )
+        self.assertEqual(
+            format_calendar_event_summary({**base, "title": "오프라인 시험 안내"}),
+            "강체동역학_시험",
         )
         self.assertEqual(
             format_calendar_event_summary({**base, "title": "Final presentation"}),

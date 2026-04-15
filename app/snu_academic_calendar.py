@@ -78,6 +78,15 @@ def pick_due_date_filter_window(now: datetime | None = None) -> tuple[datetime, 
     return flat[-1]
 
 
+def _instant_in_instructional_window(dt: datetime, *, now: datetime | None = None) -> bool:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=SEOUL)
+    else:
+        dt = dt.astimezone(SEOUL)
+    start, end = pick_due_date_filter_window(now)
+    return start <= dt <= end
+
+
 def due_at_in_active_window(due_iso: str | None, *, now: datetime | None = None) -> bool:
     """Canvas due_at(ISO-8601)이 현재 정책 창 안에 있는지 (null 제외)."""
     if not due_iso or not str(due_iso).strip():
@@ -87,9 +96,16 @@ def due_at_in_active_window(due_iso: str | None, *, now: datetime | None = None)
         due = datetime.fromisoformat(raw)
     except ValueError:
         return False
-    if due.tzinfo is None:
-        due = due.replace(tzinfo=SEOUL)
-    else:
-        due = due.astimezone(SEOUL)
-    start, end = pick_due_date_filter_window(now)
-    return start <= due <= end
+    return _instant_in_instructional_window(due, now=now)
+
+
+def posted_at_in_active_window(posted_iso: str | None, *, now: datetime | None = None) -> bool:
+    """Canvas posted_at(ISO-8601)이 현재 학기 구간 안에 있는지 (공지 필터용)."""
+    if not posted_iso or not str(posted_iso).strip():
+        return False
+    raw = str(posted_iso).strip().replace("Z", "+00:00")
+    try:
+        posted = datetime.fromisoformat(raw)
+    except ValueError:
+        return False
+    return _instant_in_instructional_window(posted, now=now)

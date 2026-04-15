@@ -13,7 +13,8 @@ from app.config import Settings
 from app.models import User
 from app.schemas import SyncResult
 from app.security import decrypt_text, encrypt_text
-from app.snu_academic_calendar import due_at_in_active_window
+from app.services.calendar_service import announcement_title_matches_exam_keywords
+from app.snu_academic_calendar import due_at_in_active_window, posted_at_in_active_window
 from calendar_service import ensure_calendar_service, insert_assignment_calendar_if_absent
 
 logger = logging.getLogger(__name__)
@@ -141,7 +142,7 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
         )
 
     fresh: list[dict[str, Any]] = []
-    assign_n = quiz_n = 0
+    assign_n = quiz_n = ann_n = 0
 
     for c in courses[:60]:
         raw_id = c.get("id")
@@ -217,18 +218,55 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
             )
             quiz_n += 1
 
+        try:
+            topics = _fetch_all_pages(
+                f"{MYETL_CANVAS_BASE}/api/v1/courses/{cid}/discussion_topics"
+                f"?only_announcements=true&per_page=50",
+                headers,
+            )
+        except requests.RequestException:
+            topics = []
+
+        for topic in topics:
+            title = str(topic.get("title") or "").strip()
+            if not title or not announcement_title_matches_exam_keywords(title):
+                continue
+            posted = topic.get("posted_at") or topic.get("delayed_post_at")
+            if not posted_at_in_active_window(posted if isinstance(posted, str) else None):
+                continue
+            tid_raw = topic.get("id")
+            if tid_raw is None:
+                continue
+            tid = int(tid_raw)
+            eid = f"canvas-{cid}-announce-{tid}"
+            html_url = str(topic.get("html_url") or "").strip()
+            url = html_url or f"{MYETL_CANVAS_BASE}/courses/{cid}/discussion_topics/{tid}"
+            fresh.append(
+                {
+                    "id": eid,
+                    "title": title[:500],
+                    "subject": subj[:256],
+                    "url": url,
+                    "activity_type": "exam",
+                    "deadline": "",
+                    "posted_at": str(posted).strip(),
+                    "description_extra": title,
+                }
+            )
+            ann_n += 1
+
     if not fresh:
         return SyncResult(
             new_assignments=0,
             calendar_events_created=0,
             ics_events_created=0,
-            message="현재 학기 기준으로 새로 반영할 과제·퀴즈가 없습니다. "
+            message="현재 학기 기준으로 새로 반영할 과제·퀴즈·시험 공지가 없습니다. "
             "(기간 필터에 걸리지 않았거나 Google 캘린더에 동일 일정이 이미 있을 수 있습니다.)",
             login_ok=True,
             courses_found=len(courses),
             assign_links_found=assign_n,
             quiz_links_found=quiz_n,
-            announcement_keyword_hits=0,
+            announcement_keyword_hits=ann_n,
             login_note="Canvas API 서버 동기화",
             course_list_scanned=True,
             canvas_server_context=True,
@@ -259,7 +297,7 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
         courses_found=len(courses),
         assign_links_found=assign_n,
         quiz_links_found=quiz_n,
-        announcement_keyword_hits=0,
+        announcement_keyword_hits=ann_n,
         login_note="Canvas API 서버 동기화",
         course_list_scanned=True,
         canvas_server_context=True,
