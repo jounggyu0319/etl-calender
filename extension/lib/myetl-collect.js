@@ -114,16 +114,22 @@
         ? location.origin
         : "https://myetl.snu.ac.kr";
 
-    // 1) /my/ — 강의 목록
-    let myHtml;
-    try {
-      myHtml = await fetchText(`${origin}/my/`);
-    } catch (e) {
-      return { error: `강의 목록 로드 실패: ${e}`, items: [], courses: 0 };
+    // 1) 강의 목록 페이지 — /my/ → /my/index.php → /dashboard 순으로 시도
+    const dashCandidates = ["/my/", "/my/index.php", "/dashboard"];
+    let myHtml = null;
+    let dashErr = null;
+    for (const path of dashCandidates) {
+      try {
+        const html = await fetchText(`${origin}${path}`);
+        if (html != null) { myHtml = html; break; }
+      } catch (e) {
+        dashErr = e;
+      }
     }
     if (myHtml == null) {
+      const reason = dashErr ? String(dashErr) : "404";
       return {
-        error: "강의 목록을 불러올 수 없습니다(404). myetl에 로그인되어 있는지 확인하세요.",
+        error: `강의 목록 로드 실패 (${reason}). myetl에 로그인되어 있는지 확인하세요.`,
         items: [],
         courses: 0,
       };
