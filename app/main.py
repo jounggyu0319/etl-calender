@@ -25,7 +25,7 @@ def _attach_etl_console_loggers() -> None:
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
@@ -75,6 +75,20 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix="/api")
+
+
+@app.get("/healthz")
+async def healthz():
+    """Uptime monitor ping — DB 연결 확인 후 200 반환."""
+    from app.db import engine
+    from sqlalchemy import text
+
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return JSONResponse({"status": "ok"})
+    except Exception as exc:
+        return JSONResponse({"status": "error", "detail": str(exc)}, status_code=503)
 
 
 @app.get("/")
