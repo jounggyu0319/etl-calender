@@ -91,22 +91,33 @@ def google_callback(
         callback_url = "https://" + callback_url[7:]
     try:
         flow.fetch_token(authorization_response=callback_url)
-    except Exception as exc:
-        logger.error("Google OAuth token fetch 실패 | url=%s | error=%s", callback_url, exc)
+    except Exception:
+        logger.exception("Google OAuth token fetch 실패 | url=%s", callback_url)
         return RedirectResponse(url="/?google=token_error", status_code=302)
 
     user = db.get(User, user_id)
     if user is None:
         return RedirectResponse(url="/?google=no_user", status_code=302)
 
+    creds = flow.credentials
+    raw = creds.to_json()
+
     try:
-        creds = flow.credentials
-        raw = creds.to_json()
         user.google_creds_enc = encrypt_text(raw, settings)
+    except Exception:
+        logger.exception(
+            "Google OAuth 저장 실패(암호화) | user_id=%s | crypto_key_len=%s",
+            user_id,
+            len(settings.crypto_key or ""),
+        )
+        return RedirectResponse(url="/?google=save_encrypt_error", status_code=302)
+
+    try:
         db.add(user)
         db.commit()
-    except Exception as exc:
-        logger.error("Google OAuth 저장 실패: %s", exc)
-        return RedirectResponse(url="/?google=save_error", status_code=302)
+    except Exception:
+        db.rollback()
+        logger.exception("Google OAuth 저장 실패(DB commit) | user_id=%s", user_id)
+        return RedirectResponse(url="/?google=save_db_error", status_code=302)
 
     return RedirectResponse(url="/?google=connected", status_code=302)

@@ -1,3 +1,4 @@
+from cryptography.fernet import Fernet
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -78,6 +79,14 @@ class Settings(BaseSettings):
         if v is None or (isinstance(v, str) and not str(v).strip()):
             return None
         return str(v).strip()
+
+    @field_validator("crypto_key", mode="before")
+    @classmethod
+    def _validate_crypto_key(cls, v):
+        s = str(v or "").strip()
+        # Fail-fast: 잘못된 Fernet 키는 OAuth 토큰 저장(encrypt) 시점에 save_error를 유발한다.
+        Fernet(s.encode())
+        return s
 
     @field_validator("deploy_env", mode="before")
     @classmethod

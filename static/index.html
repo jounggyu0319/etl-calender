@@ -272,17 +272,8 @@
       let data = null;
       try { data = text ? JSON.parse(text) : null; } catch { data = { detail: text }; }
       if (!res.ok) {
-        const detail = data && (data.detail || data.message);
-        let msg;
-        if (typeof detail === "string") {
-          msg = detail;
-        } else if (Array.isArray(detail)) {
-          // FastAPI validation error array → 첫 번째 메시지만 표시
-          msg = detail.map((e) => e.msg || JSON.stringify(e)).join(" / ");
-        } else {
-          msg = res.statusText || "오류가 발생했습니다.";
-        }
-        throw new Error(msg);
+        const msg = (data && (data.detail || data.message)) || res.statusText;
+        throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
       }
       return data;
     }
@@ -377,8 +368,8 @@
       hideBanner();
     }
 
-    async function refreshMe({ keepBanner = false } = {}) {
-      if (!keepBanner) hideBanner();
+    async function refreshMe() {
+      hideBanner();
       if (!token()) {
         $("dash").style.display = "none";
         $("dash").classList.add("hidden");
@@ -427,19 +418,9 @@
 
     $("btn-login").onclick = async () => {
       hideBanner();
-      const emailVal = $("email").value.trim();
-      const passVal = $("password").value;
-      if (!emailVal || !emailVal.includes("@")) {
-        showBanner("err", "올바른 이메일 주소를 입력해 주세요.");
-        return;
-      }
-      if (!passVal) {
-        showBanner("err", "비밀번호를 입력해 주세요.");
-        return;
-      }
       const body = new URLSearchParams();
-      body.set("username", emailVal);
-      body.set("password", passVal);
+      body.set("username", $("email").value.trim());
+      body.set("password", $("password").value);
       body.set("grant_type", "password");
       try {
         const data = await api("/api/auth/token", {
@@ -457,21 +438,14 @@
 
     $("btn-register").onclick = async () => {
       hideBanner();
-      const email = $("email").value.trim();
-      const password = $("password").value;
-      if (!email || !email.includes("@")) {
-        showBanner("err", "올바른 이메일 주소를 입력해 주세요.");
-        return;
-      }
-      if (password.length < 8) {
-        showBanner("err", "비밀번호는 8자 이상이어야 합니다.");
-        return;
-      }
       try {
         const data = await api("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({
+            email: $("email").value.trim(),
+            password: $("password").value,
+          }),
         });
         localStorage.setItem(tokenKey, data.access_token);
         showBanner("ok", "가입되었습니다.");
@@ -519,21 +493,11 @@
 
     $("btn-google").onclick = async () => {
       hideBanner();
-      $("btn-google").disabled = true;
-      $("btn-google").textContent = "연결 중…";
       try {
-        const data = await api("/api/oauth/google/authorize");
-        const url = data && data.authorization_url;
-        if (!url) throw new Error("authorization_url 이 응답에 없습니다.");
-        window.location.href = url;
+        const { authorization_url } = await api("/api/oauth/google/authorize");
+        window.location.href = authorization_url;
       } catch (e) {
-        const msg = e.message || "Google 연결을 시작할 수 없습니다.";
-        showBanner("err", msg);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        console.error("[Google OAuth]", msg);
-      } finally {
-        $("btn-google").disabled = false;
-        $("btn-google").textContent = "Google 계정 연결";
+        showBanner("err", e.message || "Google 연결을 시작할 수 없습니다.");
       }
     };
 
@@ -698,11 +662,8 @@
     const q = new URLSearchParams(location.search);
     const g = q.get("google");
     if (g === "connected") {
+      showBanner("ok", "Google Calendar 연결이 완료되었습니다.");
       history.replaceState({}, "", "/");
-      refreshMe({ keepBanner: false }).then(() => {
-        showBanner("ok", "Google Calendar 연결이 완료되었습니다.");
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      });
     } else if (g) {
       const oauthErr =
         g === "no_client"
@@ -711,23 +672,20 @@
             ? "GOOGLE_CREDENTIALS_JSON 형식이 잘못되었습니다. JSON 한 덩어리인지 확인해 주세요."
             : g === "token_error"
               ? "Google 토큰 교환에 실패했습니다. redirect_uri가 Google Cloud Console의 승인 URI와 정확히 일치하는지, 앱 게시 상태(테스트/프로덕션)를 확인해 주세요."
+              : g === "save_encrypt_error"
+                ? "Google 토큰 저장 중 암호화 단계에서 실패했습니다. 서버 CRYPTO_KEY 형식을 확인해 주세요."
+                : g === "save_db_error"
+                  ? "Google 토큰 저장 중 DB 커밋에 실패했습니다. 서버 로그와 DATABASE_URL 상태를 확인해 주세요."
               : g === "bad_state"
                 ? "인증 상태가 만료되었습니다(15분 초과). 다시 시도해 주세요."
                 : g === "denied"
                   ? "Google 계정 연결을 취소했습니다."
-                  : g === "no_user"
-                    ? "사용자 정보를 찾을 수 없습니다. 다시 로그인 후 시도해 주세요."
-                    : g === "save_error"
-                      ? "Google 토큰 저장에 실패했습니다. 서버 로그를 확인해 주세요."
-                      : "Google 연결 중 문제가 있었습니다. 잠시 후 다시 시도해 주세요.";
+                  : "Google 연결 중 문제가 있었습니다. 잠시 후 다시 시도해 주세요.";
+      showBanner("err", oauthErr);
       history.replaceState({}, "", "/");
-      refreshMe({ keepBanner: true }).then(() => {
-        showBanner("err", oauthErr);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      });
-    } else {
-      refreshMe();
     }
+
+    refreshMe();
   </script>
 </body>
 </html>

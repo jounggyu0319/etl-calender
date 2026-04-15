@@ -1,16 +1,14 @@
 {
   "version": "2.1.4",
   "project": "etl-calendar",
-  "activeFeature": "etl-extension-no2fa",
-  "phase": "check",
-  "iteration": 1,
-  "lastUpdated": "2026-04-13",
+  "activeFeature": "db-persistence",
+  "phase": "do",
+  "iteration": 2,
+  "lastUpdated": "2026-04-15",
   "features": {
     "etl-extension-no2fa": {
-      "phase": "check",
-      "status": "gap_fixed",
-      "planDoc": "docs/01-plan/features/etl-extension-no2fa.plan.md",
-      "designDoc": "docs/02-design/features/etl-extension-no2fa.design.md",
+      "phase": "act",
+      "status": "done",
       "gapAnalysis": {
         "passed": [
           "background.js service worker",
@@ -18,18 +16,28 @@
           "manifest.json 구조",
           "메시지 타입 일관성 (MYETL_PROGRESS)",
           "Electron WebView persist 세션",
-          "Electron 로그인 감지 로직",
-          "myetl-collect.js executeJavaScript 주입"
-        ],
-        "fixed": [
-          "desktop/index.html CSP connect-src 누락 → 수정 완료",
-          "desktop/renderer.js JWT 수동 입력 UX → 로그인 폼 추가",
-          "static/index.html 동기화 히스토리 (localStorage 방식) → 완료"
+          "Google OAuth 연동 완료",
+          "CRYPTO_KEY Fernet 검증",
+          "iCal /feeds/ 경로 허용",
+          "refreshMe 배너 덮어쓰기 버그 수정"
         ],
         "pending": [
-          "end-to-end 실제 테스트 (Google Calendar 일정 생성 확인)"
+          "end-to-end 실제 테스트 (iCal 구독 URL → Google Calendar 일정 생성 확인)"
         ]
       }
+    },
+    "db-persistence": {
+      "phase": "do",
+      "status": "planned",
+      "planDoc": "docs/01-plan/features/db-persistence.plan.md",
+      "problem": "Render 재배포마다 SQLite DB 초기화 → 사용자 계정·Google 토큰 소실",
+      "solution": "Render 무료 PostgreSQL 연결",
+      "tasks": [
+        "psycopg2-binary → requirements.txt 추가",
+        "app/db.py SQLite 전용 옵션(check_same_thread) 조건 분기",
+        "render.yaml databases 섹션 추가 + DATABASE_URL 환경변수 연결",
+        "Render 대시보드에서 PostgreSQL 인스턴스 생성 후 DATABASE_URL 확인"
+      ]
     }
   }
 }
