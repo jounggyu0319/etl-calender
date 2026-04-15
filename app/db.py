@@ -11,9 +11,11 @@ class Base(DeclarativeBase):
 
 
 settings = get_settings()
+_db_url = (settings.database_url or "").strip()
+_is_sqlite = _db_url.lower().startswith("sqlite")
 engine = create_engine(
     settings.database_url,
-    connect_args={"check_same_thread": False} if settings.database_url.startswith("sqlite") else {},
+    connect_args={"check_same_thread": False} if _is_sqlite else {},
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -31,7 +33,7 @@ def init_db() -> None:
 
     Base.metadata.create_all(bind=engine)
     # SQLite: 기존 DB에 새 컬럼 추가 (create_all만으로는 ALTER 안 됨)
-    if settings.database_url.startswith("sqlite"):
+    if _is_sqlite:
         insp = inspect(engine)
         if insp.has_table("users"):
             cols = {c["name"] for c in insp.get_columns("users")}
