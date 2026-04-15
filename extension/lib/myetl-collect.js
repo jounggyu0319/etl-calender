@@ -109,7 +109,7 @@
     let courses;
     try {
       courses = await fetchAllPages(
-        `${origin}/api/v1/courses?enrollment_state=active&per_page=100`,
+        `${origin}/api/v1/courses?enrollment_state=active&include[]=term&per_page=100`,
         delayMs,
       );
     } catch (e) {
@@ -126,20 +126,44 @@
 
     // 현재 학기 구간과 겹치는 강의만 스캔
     const [semStart, semEnd] = pickDueFilterWindowMs();
+
+    /** 현재 학기 코드 — 예: "2026-1", "2026-2" */
+    function currentSemesterPrefix() {
+      const now = new Date();
+      const nowMs = now.getTime();
+      const y = now.getFullYear();
+      const windows = instructionalWindowsForYear(y);
+      // 1학기(0), 여름(1), 2학기(2), 겨울(3)
+      const labels = [`${y}-1`, `${y}-여름`, `${y}-2`, `${y}-겨울`];
+      for (let i = 0; i < windows.length; i++) {
+        if (nowMs >= windows[i][0] && nowMs <= windows[i][1]) return labels[i];
+      }
+      // 방학 중이면 다음 학기
+      for (let i = 0; i < windows.length; i++) {
+        if (nowMs < windows[i][0]) return labels[i];
+      }
+      return `${y}-2`;
+    }
+    const semPrefix = currentSemesterPrefix(); // 예: "2026-1"
+
     const list = courses.filter((c) => {
-      // Canvas term 정보 우선
+      // 1) Canvas term 날짜 기준
       const termStart = c.term?.start_at ? Date.parse(c.term.start_at) : null;
       const termEnd   = c.term?.end_at   ? Date.parse(c.term.end_at)   : null;
       if (termStart !== null && termEnd !== null) {
         return termStart <= semEnd && termEnd >= semStart;
       }
-      // term 없으면 course 자체 start_at/end_at
+      // 2) course start_at/end_at 기준
       const cStart = c.start_at ? Date.parse(c.start_at) : null;
       const cEnd   = c.end_at   ? Date.parse(c.end_at)   : null;
       if (cStart !== null && cEnd !== null) {
         return cStart <= semEnd && cEnd >= semStart;
       }
-      // 날짜 정보가 전혀 없으면 포함 (안전하게)
+      // 3) 강의명 앞 "YYYY-N" 패턴 폴백 — 예: "2026-1 강체동역학"
+      const name = (c.name || c.course_code || "").trim();
+      const m = name.match(/^(\d{4}-\d)/);
+      if (m) return m[1] === semPrefix;
+      // 날짜·이름 정보 모두 없으면 포함
       return true;
     }).slice(0, 60);
     const items = [];
