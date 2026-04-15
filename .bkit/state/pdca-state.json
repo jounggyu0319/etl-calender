@@ -4,7 +4,7 @@
   "activeFeature": "auto-sync",
   "phase": "check",
   "iteration": 3,
-  "lastUpdated": "2026-04-13",
+  "lastUpdated": "2026-04-15",
   "features": {
     "etl-extension-no2fa": {
       "phase": "act",
@@ -32,6 +32,22 @@
       "problem": "Render 재배포마다 SQLite DB 초기화 → 사용자 계정·Google 토큰 소실",
       "solution": "Render 무료 PostgreSQL 연결",
       "tasks": []
+    },
+    "product-vision": {
+      "phase": "plan",
+      "status": "planned",
+      "vision": "확장 프로그램 없는 순수 웹/앱 서비스",
+      "roadmap": {
+        "free": "iCal URL 기반 자동 동기화 — 설정 간단, 마감일 있는 항목",
+        "pro": "Canvas API 토큰 기반 — 과제·퀴즈·공지 전체, 더 빠른 주기, 소액 결제",
+        "mobile": "PWA 또는 네이티브 앱 — 서버 사이드라 클라이언트 무관"
+      },
+      "notes": [
+        "myetl.snu.ac.kr은 Canvas LMS (Moodle 아님)",
+        "Canvas API 토큰: /profile/settings → 새 액세스 토큰 생성 가능 확인",
+        "models.py에 plan: free|pro 필드 및 Stripe 연동 준비 이미 존재",
+        "확장 프로그램은 과도기 수단 — 장기적으로 제거 예정"
+      ]
     },
     "auto-sync": {
       "phase": "check",
