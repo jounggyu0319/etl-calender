@@ -8,7 +8,6 @@ from app.models import User
 from app.schemas import (
     AutoSyncUpdate,
     CanvasTokenUpdate,
-    EtlCredentialsUpdate,
     MoodleCalendarFeedUpdate,
     UserOut,
 )
@@ -21,21 +20,6 @@ router = APIRouter()
 
 @router.get("/", response_model=UserOut)
 def read_me(user: User = Depends(get_current_user)) -> UserOut:
-    return user_to_out(user)
-
-
-@router.patch("/etl", response_model=UserOut)
-def update_etl_credentials(
-    body: EtlCredentialsUpdate,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-) -> UserOut:
-    user.etl_username_enc = encrypt_text(body.etl_username.strip(), settings)
-    user.etl_password_enc = encrypt_text(body.etl_password.strip("\r\n"), settings)
-    db.add(user)
-    db.commit()
-    db.refresh(user)
     return user_to_out(user)
 
 

@@ -86,7 +86,7 @@
         <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div class="min-w-0 flex-1">
             <h2 class="text-lg font-bold text-slate-900">내 연결 상태</h2>
-            <p class="mt-1 text-sm text-slate-500">Google과 eTL만 연결하면 바로 동기화할 수 있어요.</p>
+            <p class="mt-1 text-sm text-slate-500">Google·캘린더 구독 URL·Canvas 토큰을 연결하면 동기화할 수 있어요.</p>
           </div>
           <button type="button" id="btn-logout-dash"
             class="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900">
@@ -125,15 +125,11 @@
         </div>
 
         <div id="sync-row-etl" class="hidden space-y-3" style="display:none;">
-          <button type="button" id="btn-etl-prepare"
-            class="flex min-h-[3rem] w-full items-center justify-center gap-2 rounded-2xl border-2 border-snu/25 bg-white px-4 py-3.5 text-[15px] font-semibold text-snu transition hover:border-snu/50 hover:bg-snu/5 active:scale-[0.99] disabled:opacity-45">
-            <span class="text-lg" aria-hidden="true">🔐</span> eTL 로그인
-          </button>
           <button type="button" id="btn-etl-continue"
             class="flex min-h-[3rem] w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3.5 text-[15px] font-semibold text-white shadow-md transition hover:bg-slate-800 active:scale-[0.99] disabled:opacity-45">
-            <span class="text-lg" aria-hidden="true">🔄</span> 전체 동기화
+            <span class="text-lg" aria-hidden="true">🔄</span> 전체 동기화 (Canvas)
           </button>
-          <p class="text-xs leading-relaxed text-slate-500">과제·퀴즈까지 가져올 때는 먼저 eTL 로그인 후 전체 동기화를 눌러 주세요.</p>
+          <p class="text-xs leading-relaxed text-slate-500">Canvas API 토큰을 저장한 뒤 눌러 주세요. Chrome 확장으로도 동기화할 수 있어요.</p>
         </div>
 
         <p id="sync-hint" class="mt-4 rounded-xl bg-slate-100/80 px-3 py-2.5 text-xs leading-relaxed text-slate-600"></p>
@@ -190,27 +186,6 @@
             class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 sm:w-auto">
             Canvas 토큰 저장
           </button>
-        </div>
-
-        <div class="rounded-xl border border-amber-200/60 bg-amber-50/40 p-4">
-          <div class="mb-3 flex items-center justify-between gap-2">
-            <h3 class="text-sm font-semibold text-slate-800">eTL 계정 <span class="font-normal text-slate-500">(선택)</span></h3>
-            <span class="text-xs text-slate-400">전체 동기화용</span>
-          </div>
-          <label for="etl-user" class="mb-1.5 block text-xs font-medium text-slate-600">eTL 아이디</label>
-          <input id="etl-user" autocomplete="username" inputmode="text" placeholder="학번 또는 아이디"
-            class="mb-3 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none ring-snu/15 focus:border-snu focus:ring-4" />
-          <label for="etl-pass" class="mb-1.5 block text-xs font-medium text-slate-600">eTL 비밀번호</label>
-          <input id="etl-pass" type="password" autocomplete="current-password"
-            class="mb-3 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none ring-snu/15 focus:border-snu focus:ring-4" />
-          <button type="button" id="btn-save-etl"
-            class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 sm:w-auto">
-            eTL 정보 저장
-          </button>
-          <p class="mt-3 text-xs leading-relaxed text-slate-600">
-            과제·퀴즈까지 자동으로 가져올 때만 필요해요. MFA를 줄이려면 Chrome을 <code class="rounded bg-white px-1 py-0.5 font-mono text-[11px] text-slate-700">--remote-debugging-port=9222</code>로 실행한 뒤 로그인하고,
-            서버에서 <code class="rounded bg-white px-1 py-0.5 font-mono text-[11px] text-slate-700">ETL_HEADLESS=false</code>일 때 <code class="rounded bg-white px-1 py-0.5 font-mono text-[11px] text-slate-700">127.0.0.1:9222</code>에 붙는 방식을 쓸 수 있어요.
-          </p>
         </div>
       </div>
 
@@ -421,11 +396,10 @@
             <span class="font-medium">${escHtml(me.email)}</span>
             <span class="rounded-full bg-white px-2.5 py-0.5 text-xs font-semibold text-snu ring-1 ring-slate-200">${escHtml(me.plan)}</span>
           </div>
-          <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             ${statusChip(me.has_google, "Google", me.has_google ? "연결됨" : "미연결")}
             ${statusChip(me.has_moodle_calendar_feed, "구독 URL", me.has_moodle_calendar_feed ? "저장됨" : "없음")}
             ${statusChip(me.has_canvas_token, "Canvas 토큰", me.has_canvas_token ? "저장됨" : "없음")}
-            ${statusChip(me.has_etl_credentials, "eTL 계정", me.has_etl_credentials ? "저장됨" : "없음")}
           </div>
         `;
 
@@ -439,19 +413,15 @@
           ? "Google 연결과 캘린더 구독 URL이 모두 있어야 자동 동기화가 동작해요."
           : "서버가 주기적으로 구독 캘린더를 가져와 Google에 반영해요. (Render 무료 플랜은 비활성 시 실행이 지연될 수 있어요.)";
 
-        const hetl = me.has_etl_credentials;
         const hcanvas = me.has_canvas_token;
-        $("btn-etl-continue").dataset.syncMode = hcanvas ? "canvas" : "etl";
-        const showFullSync = hetl || hcanvas;
+        const showFullSync = hcanvas;
         $("sync-row-etl").style.display = showFullSync ? "block" : "none";
         $("sync-row-etl").classList.toggle("hidden", !showFullSync);
         $("btn-sync").innerHTML =
           '<span class="text-lg" aria-hidden="true">📅</span> 간편 동기화';
         $("sync-hint").textContent = hcanvas
-          ? "Canvas API 토큰이 있으면「전체 동기화」는 서버에서 myetl REST API로 처리돼요(브라우저·Selenium 불필요). eTL 로그인 방식도 병행할 수 있어요."
-          : hetl
-            ? "「간편 동기화」는 창 없이 구독 캘린더만 반영해요. 과제·퀴즈까지 하려면 Canvas 토큰 또는 eTL 로그인 후 전체 동기화를 진행하세요."
-            : "구독 URL만 있으면 보통 창 없이 끝나요. 과제·퀴즈까지 하려면 Canvas API 토큰 또는 eTL 계정을 저장하세요.";
+          ? "Canvas API 토큰이 있으면「전체 동기화」는 서버에서 myetl REST API로 처리돼요(브라우저·Selenium 불필요)."
+          : "구독 URL만 있으면 보통 창 없이 끝나요. 과제·퀴즈까지 하려면 myetl에서 Canvas API 토큰을 발급해 저장하거나 Chrome 확장을 사용하세요.";
       } catch (e) {
         localStorage.removeItem(tokenKey);
         $("dash").style.display = "none";
@@ -506,24 +476,6 @@
 
     $("btn-logout").onclick = () => doLogout();
     $("btn-logout-dash").onclick = () => doLogout();
-
-    $("btn-save-etl").onclick = async () => {
-      hideBanner();
-      try {
-        await api("/api/me/etl", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            etl_username: $("etl-user").value.trim(),
-            etl_password: $("etl-pass").value,
-          }),
-        });
-        showBanner("ok", "eTL 계정을 저장했습니다.");
-        await refreshMe();
-      } catch (e) {
-        showBanner("err", e.message || "저장에 실패했습니다.");
-      }
-    };
 
     $("btn-save-canvas-token").onclick = async () => {
       hideBanner();
@@ -594,7 +546,7 @@
         lines.push(
           r.login_ok
             ? "브라우저가 열렸어요. 필요하면 창에서 MFA만 마쳐 주세요."
-            : "브라우저가 열렸어요. 창에서 eTL 로그인·MFA를 이어서 완료해 주세요."
+            : "브라우저가 열렸어요. 창에서 myetl 로그인·MFA를 이어서 완료해 주세요."
         );
       } else if (r.canvas_server_context === true) {
         lines.push("서버 Canvas API 동기화입니다.");
@@ -624,7 +576,7 @@
           if (r.message) lines.push(String(r.message));
         } else {
           if (r.courses_found === 0 && courseScanned) {
-            lines.push("⚠️ 강의를 찾지 못했어요. myetl에 로그인된 브라우저에서 전체 동기화를 다시 시도해 주세요.");
+            lines.push("⚠️ 강의를 찾지 못했어요. Canvas 토큰·전체 동기화를 다시 시도하거나 Chrome 확장을 사용해 주세요.");
           } else if (courseScanned) {
             lines.push(
               `강의 ${r.courses_found}개를 확인했어요. (과제 ${r.assign_links_found}·퀴즈 ${r.quiz_links_found}·공지 관련 ${r.announcement_keyword_hits ?? 0})`
@@ -662,32 +614,9 @@
         lines.push("다음: 창에서 로그인을 마친 뒤 이 페이지에서 「전체 동기화」를 눌러 주세요.");
       }
       if (!r.login_ok && !r.etl_awaiting_user && courseScanned && !r.canvas_server_context) {
-        lines.push("문제가 계속되면 「eTL 로그인」을 다시 눌러 브라우저 세션을 맞춰 주세요.");
+        lines.push("문제가 계속되면 Canvas 토큰·Chrome 확장·구독 URL 설정을 확인해 주세요.");
       }
       return lines.join("\n");
-    }
-
-    let syncProgressTimer = null;
-    function stopSyncProgressPoll() {
-      if (syncProgressTimer) {
-        clearInterval(syncProgressTimer);
-        syncProgressTimer = null;
-      }
-    }
-    async function pollSyncProgressOnce() {
-      try {
-        const p = await api("/api/sync/progress");
-        const out = $("sync-out");
-        if (!p.running) return;
-        if (p.phase === "course_scan" && p.course_total > 0) {
-          out.textContent =
-            "강의 " + p.course_index + "/" + p.course_total + " 스캔 중… " + (p.course_name || "");
-        } else if (p.phase === "calendar_extra") {
-          out.textContent = "월간 캘린더에서 추가 일정을 찾는 중…";
-        } else if (p.phase === "starting" || p.phase === "courses") {
-          out.textContent = "동기화 준비 중…";
-        }
-      } catch (_) { /* ignore */ }
     }
 
     $("btn-sync").onclick = async () => {
@@ -704,46 +633,12 @@
       }
     };
 
-    $("btn-etl-prepare").onclick = async () => {
-      $("sync-out").textContent = "";
-      const b = $("btn-etl-prepare");
-      b.disabled = true;
-      try {
-        const r = await api("/api/sync/etl/prepare", { method: "POST" });
-        $("sync-out").textContent = formatSyncResult(r);
-        await refreshMe();
-      } catch (e) {
-        $("sync-out").textContent = e.message || "실패했습니다.";
-      } finally {
-        b.disabled = false;
-      }
-    };
-
     $("btn-etl-continue").onclick = async () => {
       $("sync-out").textContent = "";
       const b = $("btn-etl-continue");
       b.disabled = true;
-      const mode = b.dataset.syncMode || "etl";
-      if (mode === "canvas") {
-        try {
-          const r = await api("/api/sync/canvas", { method: "POST" });
-          $("sync-out").textContent = formatSyncResult(r);
-          const totalAdded = (r.calendar_events_created || 0) + (r.ics_events_created || 0);
-          writeSyncHistory(totalAdded);
-          renderSyncHistory();
-          await refreshMe();
-        } catch (e) {
-          $("sync-out").textContent = e.message || "실패했습니다.";
-        } finally {
-          b.disabled = false;
-        }
-        return;
-      }
-      stopSyncProgressPoll();
-      syncProgressTimer = setInterval(pollSyncProgressOnce, 450);
-      pollSyncProgressOnce();
       try {
-        const r = await api("/api/sync/etl/continue", { method: "POST" });
+        const r = await api("/api/sync/canvas", { method: "POST" });
         $("sync-out").textContent = formatSyncResult(r);
         const totalAdded = (r.calendar_events_created || 0) + (r.ics_events_created || 0);
         writeSyncHistory(totalAdded);
@@ -752,7 +647,6 @@
       } catch (e) {
         $("sync-out").textContent = e.message || "실패했습니다.";
       } finally {
-        stopSyncProgressPoll();
         b.disabled = false;
       }
     };

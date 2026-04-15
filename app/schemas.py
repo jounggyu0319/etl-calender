@@ -14,7 +14,6 @@ class UserOut(BaseModel):
     id: int
     email: EmailStr
     plan: str
-    has_etl_credentials: bool
     has_moodle_calendar_feed: bool
     has_google: bool
     has_canvas_token: bool = False
@@ -25,11 +24,6 @@ class UserOut(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
-
-
-class EtlCredentialsUpdate(BaseModel):
-    etl_username: str = Field(min_length=1, max_length=128)
-    etl_password: str = Field(min_length=1, max_length=256)
 
 
 class CanvasTokenUpdate(BaseModel):

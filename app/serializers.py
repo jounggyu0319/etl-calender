@@ -7,7 +7,6 @@ def user_to_out(user: User) -> UserOut:
         id=user.id,
         email=user.email,
         plan=user.plan,
-        has_etl_credentials=bool(user.etl_username_enc and user.etl_password_enc),
         has_moodle_calendar_feed=bool(user.moodle_calendar_feed_enc),
         has_google=bool(user.google_creds_enc),
         has_canvas_token=bool(user.canvas_token_enc),

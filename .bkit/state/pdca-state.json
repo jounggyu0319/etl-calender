@@ -1,7 +1,7 @@
 {
   "version": "2.1.4",
   "project": "etl-calendar",
-  "activeFeature": "sync-suite-three",
+  "activeFeature": "remove-etl-credentials",
   "phase": "act",
   "iteration": 1,
   "lastUpdated": "2026-04-15",
@@ -75,6 +75,17 @@
         "✅ calendar: extendedProperties.private.etl_id + 기존 일정 조회 후 skip",
         "✅ app/snu_academic_calendar.py + extension 학기 동적",
         "✅ canvas_token_enc, PATCH /api/me/canvas-token, canvas_sync.py, UI, POST /api/sync/canvas"
+      ]
+    },
+    "remove-etl-credentials": {
+      "phase": "act",
+      "status": "done",
+      "problem": "서버에 eTL(myetl) 비밀번호 저장은 보안·신뢰 부담; Canvas 토큰·iCal로 전환됨",
+      "tasks": [
+        "✅ models.py: etl_username_enc / etl_password_enc 모델 필드 제거(DB DROP 없음)",
+        "✅ schemas·serializers·routers/me: EtlCredentialsUpdate·PATCH /api/me/etl·UserOut has_etl_credentials 제거",
+        "✅ sync_runner: 저장 자격증명 미참조, prepare 조기 안내, continue 메시지 정리",
+        "✅ static/index.html: eTL 폼·로그인 버튼·has_etl_credentials·Selenium 진행 폴링 제거, 전체 동기화는 Canvas만"
       ]
     },
     "auto-sync": {

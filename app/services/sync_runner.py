@@ -341,8 +341,7 @@ def run_user_sync(
     ) = _ical_merge_only(user, settings, merged_seen, google_json)
     ical_sync_attempted = ical_feed_configured
 
-    etl_user = (decrypt_text(user.etl_username_enc, settings) or "").strip()
-    etl_pass = (decrypt_text(user.etl_password_enc, settings) or "").strip("\r\n")
+    has_canvas = bool(user.canvas_token_enc)
 
     _commit_seen_and_google_with_settings(db, user, settings, merged_seen, google_json, google_changed)
     ok_report = CollectResult(login_ok=True)
@@ -354,22 +353,19 @@ def run_user_sync(
     if not ical_feed_configured:
         parts.append(
             "myetl 캘린더 → «URL 주소 가져오기»로 받은 구독 링크를 저장하면, "
-            "eTL 로그인 없이 이 버튼만으로 동기화할 수 있어요."
+            "이 버튼만으로 동기화할 수 있어요."
         )
     if settings.deploy_env == "production":
-        if etl_user and etl_pass:
-            parts.append(
-                "클라우드 배포에서는 브라우저 eTL 동기화를 사용할 수 없습니다. "
-                "구독 URL·「📅 캘린더 간편 동기화」만 이용해 주세요."
-            )
-    elif etl_user and etl_pass:
         parts.append(
-            "과제·퀴즈·공지까지 하려면 「🔐 eTL 로그인」→ myetl 로그인·MFA → 「🔄 전체 동기화 시작」 순서를 사용하세요."
+            "클라우드에서는 Canvas API 토큰 +「전체 동기화」(서버) 또는 구독 URL·Chrome 확장을 이용해 주세요."
         )
-    elif (not etl_user or not etl_pass) and settings.deploy_env != "production":
+    elif has_canvas:
         parts.append(
-            "과제·퀴즈·공지까지 하려면 eTL 아이디·비밀번호를 저장한 뒤, "
-            "「🔐 eTL 로그인」→「🔄 전체 동기화 시작」 순서(로컬)를 사용하세요."
+            "과제·퀴즈 반영은 Canvas API 토큰 저장 후「전체 동기화」 또는 Chrome 확장 프로그램을 사용하세요."
+        )
+    else:
+        parts.append(
+            "과제·퀴즈 반영은 myetl에서 Canvas API 토큰을 발급해 저장하거나, Chrome 확장 프로그램을 사용하세요."
         )
     return _diag(
         ok_report,
@@ -386,11 +382,11 @@ def run_user_sync(
 
 
 def run_etl_prepare_browser(
-    db: Session,
+    _db: Session,
     user: User,
     settings: Settings,
 ) -> SyncResult:
-    """eTL 통합로그인까지 자동으로 진행한 뒤 브라우저를 열어 둡니다. 이후 `run_etl_continue_sync` 호출."""
+    """레거시 엔드포인트 호환: 서버에 eTL 비밀번호를 저장하지 않으므로 Selenium 준비는 하지 않습니다."""
     google_json = decrypt_text(user.google_creds_enc, settings)
     if not google_json:
         return SyncResult(
@@ -406,170 +402,21 @@ def run_etl_prepare_browser(
             login_note=None,
         )
 
-    etl_user = (decrypt_text(user.etl_username_enc, settings) or "").strip()
-    etl_pass = (decrypt_text(user.etl_password_enc, settings) or "").strip("\r\n")
-    if not etl_user or not etl_pass:
-        return SyncResult(
-            new_assignments=0,
-            calendar_events_created=0,
-            ics_events_created=0,
-            message="eTL 아이디·비밀번호를 먼저 저장해 주세요.",
-            login_ok=False,
-            courses_found=0,
-            assign_links_found=0,
-            quiz_links_found=0,
-            announcement_keyword_hits=0,
-            login_note=None,
-        )
-
-    if settings.deploy_env == "production":
-        return SyncResult(
-            new_assignments=0,
-            calendar_events_created=0,
-            ics_events_created=0,
-            message="클라우드 배포 환경에서는 브라우저 eTL 동기화(Selenium)를 사용할 수 없습니다. "
-            "「📅 캘린더 간편 동기화」로 myetl 캘린더 구독 URL만 반영해 주세요.",
-            login_ok=False,
-            courses_found=0,
-            assign_links_found=0,
-            quiz_links_found=0,
-            announcement_keyword_hits=0,
-            login_note=None,
-        )
-
-    if settings.etl_headless:
-        return SyncResult(
-            new_assignments=0,
-            calendar_events_created=0,
-            ics_events_created=0,
-            message="브라우저 로그인을 띄우려면 서버 설정에서 ETL_HEADLESS=false 가 필요합니다.",
-            login_ok=False,
-            courses_found=0,
-            assign_links_found=0,
-            quiz_links_found=0,
-            announcement_keyword_hits=0,
-            login_note=None,
-        )
-
-    merged_seen = _seen_set(user)
-    (
-        merged_seen,
-        google_json,
-        google_changed,
-        ics_created_total,
-        ics_err,
-        ical_feed_configured,
-        ical_sync_ok,
-    ) = _ical_merge_only(user, settings, merged_seen, google_json)
-    ical_sync_attempted = ical_feed_configured
-    _commit_seen_and_google_with_settings(db, user, settings, merged_seen, google_json, google_changed)
-
-    etl_driver_remove(user.id, quit_driver=True)
-    parts_head: list[str] = []
-    if ics_err:
-        parts_head.append("iCal: " + ics_err)
-    if ics_created_total:
-        parts_head.append(f"iCal {ics_created_total}건 반영.")
-
-    sc = _etl_scraper()
-    driver = None
-    try:
-        driver = sc.get_driver(
-            headless=False,
-            browser=settings.etl_browser,
-            chrome_debugger_address=settings.etl_chrome_debugger_address,
-        )
-        ok, note = sc.login(
-            driver,
-            etl_user,
-            etl_pass,
-            allow_interactive_mfa=True,
-            wait_for_session_after_submit=False,
-        )
-
-        if not ok:
-            # 자동 로그인이 중간에서 실패해도 창을 닫지 않음 → 사용자가 수동으로 이어갈 수 있음.
-            etl_driver_store(user.id, driver)
-            driver = None
-            tail = [
-                "자동 로그인은 여기까지 진행하지 못했지만 브라우저 창은 닫지 않았습니다.",
-                "창에서 직접 통합로그인·MFA를 완료한 뒤 이 페이지에서 「🔄 전체 동기화 시작」을 눌러 주세요.",
-            ]
-            if note:
-                tail.append("(자동 시도 안내: " + str(note) + ")")
-            msg = " ".join(parts_head + tail) if parts_head else " ".join(tail)
-            return _diag(
-                CollectResult(login_ok=False, login_note=note),
-                new_count=0,
-                created=0,
-                ics_created=ics_created_total,
-                message=msg,
-                etl_awaiting_user=True,
-                ical_feed_configured=ical_feed_configured,
-                ical_sync_attempted=ical_sync_attempted,
-                ical_sync_ok=ical_sync_ok,
-            )
-
-        etl_driver_store(user.id, driver)
-        driver = None
-        dbg_hint: list[str] = []
-        if str(settings.etl_browser).lower() in ("chrome", "system"):
-            dbg_hint.append(
-                "Chrome은 미리 `--remote-debugging-port=9222` 로 실행해 두면(로그인·MFA 완료 후) "
-                "「🔐 eTL 로그인」이 그 인스턴스에 붙습니다."
-            )
-        parts = parts_head + dbg_hint + [
-            "브라우저에서 로그인·MFA를 마친 뒤 이 페이지에서 「🔄 전체 동기화 시작」을 눌러 주세요.",
-        ]
-        return _diag(
-            CollectResult(login_ok=True),
-            new_count=0,
-            created=0,
-            ics_created=ics_created_total,
-            message=" ".join(parts),
-            etl_awaiting_user=True,
-            ical_feed_configured=ical_feed_configured,
-            ical_sync_attempted=ical_sync_attempted,
-            ical_sync_ok=ical_sync_ok,
-        )
-    except Exception as e:
-        if driver is not None:
-            try:
-                etl_driver_store(user.id, driver)
-                driver = None
-                tail = [
-                    f"브라우저 준비 중 오류가 있었지만 창은 닫지 않았습니다: {e}",
-                    "창을 확인한 뒤 직접 로그인하거나, 문제가 있으면 창을 닫고 「🔐 eTL 로그인」을 다시 눌러 주세요.",
-                ]
-                msg = " ".join(parts_head + tail) if parts_head else " ".join(tail)
-                return _diag(
-                    CollectResult(login_ok=False, login_note=str(e)),
-                    new_count=0,
-                    created=0,
-                    ics_created=ics_created_total,
-                    message=msg,
-                    etl_awaiting_user=True,
-                    ical_feed_configured=ical_feed_configured,
-                    ical_sync_attempted=ical_sync_attempted,
-                    ical_sync_ok=ical_sync_ok,
-                )
-            except Exception:
-                pass
-        try:
-            if driver is not None:
-                driver.quit()
-        except Exception:
-            pass
-        return _diag(
-            CollectResult(login_ok=False, login_note=str(e)),
-            new_count=0,
-            created=0,
-            ics_created=ics_created_total,
-            message=f"브라우저를 유지할 수 없습니다: {e}",
-            ical_feed_configured=ical_feed_configured,
-            ical_sync_attempted=ical_sync_attempted,
-            ical_sync_ok=ical_sync_ok,
-        )
+    return SyncResult(
+        new_assignments=0,
+        calendar_events_created=0,
+        ics_events_created=0,
+        message=(
+            "서버에 eTL(myetl) 로그인 비밀번호를 저장하는 기능은 종료되었습니다. "
+            "Canvas API 토큰(연결 설정)과「전체 동기화」, 캘린더 구독 URL·Chrome 확장 프로그램을 이용해 주세요."
+        ),
+        login_ok=False,
+        courses_found=0,
+        assign_links_found=0,
+        quiz_links_found=0,
+        announcement_keyword_hits=0,
+        login_note=None,
+    )
 
 
 def run_etl_continue_sync(
@@ -585,22 +432,6 @@ def run_etl_continue_sync(
             calendar_events_created=0,
             ics_events_created=0,
             message="Google Calendar 연동을 먼저 완료해 주세요.",
-            login_ok=False,
-            courses_found=0,
-            assign_links_found=0,
-            quiz_links_found=0,
-            announcement_keyword_hits=0,
-            login_note=None,
-        )
-
-    etl_user = (decrypt_text(user.etl_username_enc, settings) or "").strip()
-    etl_pass = (decrypt_text(user.etl_password_enc, settings) or "").strip("\r\n")
-    if not etl_user or not etl_pass:
-        return SyncResult(
-            new_assignments=0,
-            calendar_events_created=0,
-            ics_events_created=0,
-            message="eTL 계정이 저장되어 있지 않습니다.",
             login_ok=False,
             courses_found=0,
             assign_links_found=0,
@@ -630,8 +461,9 @@ def run_etl_continue_sync(
             new_assignments=0,
             calendar_events_created=0,
             ics_events_created=0,
-            message="먼저 「🔐 eTL 로그인」을 눌러 주세요. "
-            "(구독 URL만 반영하려면 「📅 캘린더 간편 동기화」를 사용하세요.)",
+            message="열어 둔 브라우저 동기화 세션이 없습니다. "
+            "과제·퀴즈는 Canvas API 토큰과「전체 동기화」 또는 Chrome 확장을 사용해 주세요. "
+            "(구독 URL만 반영하려면「간편 동기화」를 사용하세요.)",
             login_ok=False,
             courses_found=0,
             assign_links_found=0,
