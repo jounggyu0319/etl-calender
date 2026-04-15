@@ -1,9 +1,9 @@
 {
-  "version": "2.1.4",
+  "version": "2.1.5",
   "project": "etl-calendar",
-  "activeFeature": "calendar-exam-announcements",
+  "activeFeature": "debugging-and-stability",
   "phase": "act",
-  "iteration": 1,
+  "iteration": 2,
   "lastUpdated": "2026-04-15",
   "features": {
     "etl-extension-no2fa": {
@@ -32,7 +32,66 @@
       "phase": "act",
       "status": "done",
       "tasks": [
-        "✅ myetl-collect.js: Canvas assignments/quizzes + 학기·due_at 필터"
+        "✅ myetl-collect.js: Canvas assignments/quizzes + 학기·due_at 필터",
+        "✅ courses API include[]=term 추가 → term 날짜로 강의 자체 필터링",
+        "✅ fallback: YYYY-N 강의명 prefix로 현재 학기 판단",
+        "✅ Cursor 덮어쓰기로 날아간 while(1); 픽스 재적용 (canvasJson 함수)"
+      ]
+    },
+    "canvas-while1-fix": {
+      "phase": "act",
+      "status": "done",
+      "problem": "Canvas API가 JSON 앞에 while(1); CSRF prefix 붙임 → r.json() 파싱 실패",
+      "solution": "canvasJson(r): r.text() 후 while(1); 제거 → JSON.parse",
+      "tasks": [
+        "✅ fetchAllPages: r.json() → canvasJson(r) 교체",
+        "⚠️ Cursor 작업 시 이 함수 덮어쓰지 않도록 주의 필요"
+      ]
+    },
+    "course-name-dedup": {
+      "phase": "act",
+      "status": "done",
+      "problem": "SNU Canvas: c.name == c.course_code → courseLabel이 둘을 concat → 이름 두 번 표기",
+      "solution": "courseLabel: name만 사용, course_code 제거",
+      "tasks": [
+        "✅ courseLabel 함수: name만 반환",
+        "✅ normalize_course_display_name: 토큰 단위 dedup → 구문 단위 dedup (half split)"
+      ]
+    },
+    "exam-announcement-collection": {
+      "phase": "act",
+      "status": "done",
+      "problem": "Canvas 공지 기반 시험 일정 수집 — 자료성 공지 오인, 날짜 추출 부정확",
+      "tasks": [
+        "✅ myetl-collect.js: announcements API + 시험 키워드 필터",
+        "✅ stripHtml(): topic.message HTML → 평문 변환",
+        "✅ 본문 텍스트를 deadline으로 전달 → 서버 parse_deadline이 날짜 추출",
+        "✅ bodyHasDateHint(): 본문에 'N월 N일' 있는지 rough check",
+        "✅ announcementMatchesExamTitle: 자료성 공지 제외 키워드 강화 (대비용/기출/성적/결과/레포트/프로젝트/project/report)",
+        "✅ examKindFromTitle: \\bfinal\\b 단독 제거 → final exam/test/examination만 매칭",
+        "✅ parse_deadline: 복수 날짜 중 오늘 이후 가장 가까운 미래 날짜 우선 선택"
+      ]
+    },
+    "calendar-insert-debug": {
+      "phase": "act",
+      "status": "done",
+      "problem": "캘린더 추가 0건 — 예외가 함수 안에서 잡혀 팝업에 표시 안 됨",
+      "solution": "probe_calendar_access + insert_assignment_calendar_if_absent_v2로 오류 표면화",
+      "tasks": [
+        "✅ probe_calendar_access(): insert 전 read 테스트로 토큰/권한 오류 즉시 감지",
+        "✅ insert_assignment_calendar_if_absent_v2(): (inserted, skipped, error) 반환",
+        "✅ client_sync.py: 첫 번째 오류 메시지를 SyncResult.message에 포함",
+        "✅ print(flush=True) 추가로 Render 로그 즉시 출력"
+      ]
+    },
+    "server-keepalive": {
+      "phase": "act",
+      "status": "done",
+      "problem": "Render 무료 플랜: 15분 비활성 시 슬립 → 요청마다 30~60초 cold start",
+      "solution": "cron-job.org + /healthz 엔드포인트",
+      "tasks": [
+        "✅ GET /healthz: DB 연결 확인 후 {status: ok} 반환",
+        "✅ cron-job.org: 10분 주기로 /healthz 핑 (사용자가 설정 완료)"
       ]
     },
     "db-persistence": {
@@ -80,49 +139,28 @@
     "remove-etl-credentials": {
       "phase": "act",
       "status": "done",
-      "problem": "서버에 eTL(myetl) 비밀번호 저장은 보안·신뢰 부담; Canvas 토큰·iCal로 전환됨",
       "tasks": [
         "✅ models.py: etl_username_enc / etl_password_enc 모델 필드 제거(DB DROP 없음)",
         "✅ schemas·serializers·routers/me: EtlCredentialsUpdate·PATCH /api/me/etl·UserOut has_etl_credentials 제거",
-        "✅ sync_runner: 저장 자격증명 미참조, prepare 조기 안내, continue 메시지 정리",
-        "✅ static/index.html: eTL 폼·로그인 버튼·has_etl_credentials·Selenium 진행 폴링 제거, 전체 동기화는 Canvas만"
+        "✅ sync_runner: 저장 자격증명 미참조",
+        "✅ static/index.html: eTL 폼·로그인 버튼 제거"
       ]
     },
     "remove-seen-assignment-ids": {
       "phase": "act",
       "status": "done",
-      "problem": "DB seen_assignment_ids로 스킵하면 사용자가 Google에서 일정을 지워도 재추가되지 않음",
-      "solution": "extendedProperties.private.etl_id 기준 Google Calendar API 조회만으로 중복 판단",
       "tasks": [
         "✅ calendar_service: insert_assignment_calendar_if_absent + sync_assignments 실제 insert 건만 집계",
         "✅ models: seen_assignment_ids 필드 제거(DB DROP 없음)",
-        "✅ client_sync / canvas_sync / sync_runner / auto_sync: seen_* 제거, iCal·Canvas는 전 후보에 대해 etl_id 조회",
-        "✅ tests/test_client_sync_api: mock 경로·2차 동기화 기대값 갱신"
+        "✅ client_sync / canvas_sync / sync_runner / auto_sync: seen_* 제거"
       ]
     },
     "calendar-event-title-format": {
       "phase": "act",
       "status": "done",
-      "problem": "캘린더 제목에 학기 코드·섹션 번호가 그대로 노출되고 메모 형식이 산만함",
       "tasks": [
         "✅ app/services/calendar_service.py: 과목명 정리·시험 키워드 감지·제목/메모 포맷",
-        "✅ 루트 calendar_service: 이벤트 insert 시 포맷 함수 사용",
-        "✅ canvas_sync: Canvas description → description_extra",
-        "✅ moodle_ics: ICS DESCRIPTION → description_extra",
-        "✅ tests: normalize·format_calendar_event_summary 단위 테스트"
-      ]
-    },
-    "calendar-exam-announcements": {
-      "phase": "act",
-      "status": "done",
-      "problem": "과목명 중복·일반 시험 제목·메모 단순화; Canvas 공지 기반 시험 일정 미수집",
-      "tasks": [
-        "✅ app/services/calendar_service: 과목명 중복 제거·시험 분류(중간/기말/일반)·eTL 과제/시험 메모",
-        "✅ calendar_service: due 없으면 posted_at 종일 이벤트",
-        "✅ snu_academic_calendar: posted_at_in_active_window",
-        "✅ canvas_sync: discussion_topics 공지 + 시험 키워드",
-        "✅ schemas/client_sync: exam·posted_at·description_extra",
-        "✅ extension/lib/myetl-collect.js: announcements API·exam items"
+        "✅ 루트 calendar_service: 이벤트 insert 시 포맷 함수 사용"
       ]
     },
     "auto-sync": {
@@ -132,7 +170,7 @@
       "solution": "APScheduler 1h 주기 + PATCH /api/me/auto-sync + UI 토글",
       "tasks": [
         "✅ models.py: auto_sync_enabled / interval_hours / last_auto_sync_at",
-        "✅ db.py: ALTER TABLE 자동 마이그레이션 (SQLite·PostgreSQL)",
+        "✅ db.py: ALTER TABLE 자동 마이그레이션",
         "✅ services/auto_sync.py: 유저별 iCal→Google 스케줄러",
         "✅ main.py: BackgroundScheduler lifespan 등록",
         "✅ routers/me.py: PATCH /api/me/auto-sync",
