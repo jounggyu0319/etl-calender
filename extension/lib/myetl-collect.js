@@ -97,13 +97,13 @@
   function examKindFromTitle(title) {
     const s = title || "";
     const t = s.toLowerCase();
+    // 명확한 시험 용어만 매칭 — "중간"/"기말" 단독은 너무 광범위 (중간발표, 기말보고서 등 오인)
     if (s.includes("중간고사")) return "midterm";
     if (t.includes("midterm") || t.includes("mid-term") || t.includes("mid term")) return "midterm";
-    if (s.includes("중간")) return "midterm";
+    if (s.includes("중간 시험") || s.includes("중간시험") || s.includes("중간 평가")) return "midterm";
     if (s.includes("기말고사")) return "final";
     if (t.includes("final exam") || t.includes("final test") || t.includes("final examination")) return "final";
-    if (s.includes("기말")) return "final";
-    // "\bfinal\b" 단독은 너무 광범위 — "Final project/report/submission" 오인 방지
+    if (s.includes("기말 시험") || s.includes("기말시험") || s.includes("기말 평가")) return "final";
     if (s.includes("시험")) return "general";
     if (/\bexam\b/i.test(t)) return "general";
     if (/\btest\b/i.test(t)) return "general";
@@ -125,6 +125,7 @@
     const excludeKeywords = [
       "대비용", "대비 문제", "기출", "연습문제", "올려드렸", "자료 올",
       "성적", "결과", "레포트", "프로젝트", "project", "report",
+      "발표 날짜", "날짜 배정", "발표일 배정", "강의 운영", "수업 운영",
     ];
     if (excludeKeywords.some((k) => t.toLowerCase().includes(k.toLowerCase()))) return false;
 
