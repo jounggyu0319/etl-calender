@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from typing import Any
@@ -14,6 +15,7 @@ from app.models import User
 from app.schemas import SyncResult
 from app.security import decrypt_text, encrypt_text
 from app.services.calendar_service import announcement_title_matches_exam_keywords
+from app.services.sync_progress import clear_progress, set_progress
 from app.snu_academic_calendar import due_at_in_active_window, posted_at_in_active_window
 from calendar_service import ensure_calendar_service, insert_assignment_calendar_if_absent
 
@@ -40,6 +42,14 @@ def _parse_next_link(link_header: str | None) -> str | None:
     return None
 
 
+def _canvas_json(r: requests.Response) -> Any:
+    """Canvas API는 CSRF 방지용 while(1); prefix를 붙임 — 제거 후 파싱."""
+    text = r.text
+    if text.startswith("while(1);"):
+        text = text[9:]
+    return json.loads(text)
+
+
 def _fetch_all_pages(first_url: str, headers: dict[str, str], timeout: int = 45) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     url: str | None = first_url
@@ -52,7 +62,11 @@ def _fetch_all_pages(first_url: str, headers: dict[str, str], timeout: int = 45)
         if r.status_code == 404:
             break
         r.raise_for_status()
-        chunk = r.json()
+        try:
+            chunk = _canvas_json(r)
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning("[canvas_sync] JSON 파싱 실패: %s", e)
+            break
         if not isinstance(chunk, list):
             break
         rows.extend(chunk)
@@ -68,7 +82,7 @@ def _course_label(c: dict[str, Any]) -> str:
     return name or code or f"Course {c.get('id')}"
 
 
-def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncResult:
+def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncResult:  # noqa: C901
     google_json = decrypt_text(user.google_creds_enc, settings)
     if not google_json:
         return SyncResult(
@@ -117,6 +131,10 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
             canvas_server_context=True,
         )
 
+    uid = user.id
+    clear_progress(uid)
+    set_progress(uid, running=True, phase="강의 목록 불러오는 중…", course_index=0, course_total=0, course_name="")
+
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/json",
@@ -127,6 +145,7 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
             headers,
         )
     except requests.RequestException as e:
+        clear_progress(uid)
         return SyncResult(
             new_assignments=0,
             calendar_events_created=0,
@@ -143,13 +162,16 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
 
     fresh: list[dict[str, Any]] = []
     assign_n = quiz_n = ann_n = 0
+    course_list = courses[:60]
+    total = len(course_list)
 
-    for c in courses[:60]:
+    for idx, c in enumerate(course_list, 1):
         raw_id = c.get("id")
         if raw_id is None:
             continue
         cid = int(raw_id)
         subj = _course_label(c)
+        set_progress(uid, running=True, phase="스캔 중", course_index=idx, course_total=total, course_name=subj)
         try:
             assignments = _fetch_all_pages(
                 f"{MYETL_CANVAS_BASE}/api/v1/courses/{cid}/assignments?per_page=100",
@@ -255,7 +277,10 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
             )
             ann_n += 1
 
+    set_progress(uid, running=True, phase="캘린더에 반영 중…", course_index=total, course_total=total, course_name="")
+
     if not fresh:
+        clear_progress(uid)
         return SyncResult(
             new_assignments=0,
             calendar_events_created=0,
@@ -283,6 +308,7 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
         user.google_creds_enc = encrypt_text(fresh_google_json, settings)
     db.add(user)
     db.commit()
+    clear_progress(uid)
 
     partial = created < len(fresh)
     return SyncResult(

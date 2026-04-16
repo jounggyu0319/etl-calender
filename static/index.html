@@ -670,14 +670,41 @@
       $("sync-out").textContent = "";
       const b = $("btn-etl-continue");
       b.disabled = true;
+
+      // Progress 폴링 시작
+      let pollTimer = null;
+      function startPolling() {
+        pollTimer = setInterval(async () => {
+          try {
+            const p = await api("/api/sync/progress");
+            if (p.running) {
+              const idx = p.course_index || 0;
+              const tot = p.course_total || 0;
+              const name = p.course_name || "";
+              const countStr = tot > 0 ? ` (${idx}/${tot})` : "";
+              $("sync-out").textContent = name
+                ? `${name} 스캔 중…${countStr}`
+                : (p.phase || "동기화 중…");
+            }
+          } catch { /* 폴링 오류는 무시 */ }
+        }, 1000);
+      }
+      function stopPolling() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      }
+
       try {
+        startPolling();
+        $("sync-out").textContent = "강의 목록 불러오는 중…";
         const r = await api("/api/sync/canvas", { method: "POST" });
+        stopPolling();
         $("sync-out").textContent = formatSyncResult(r);
         const totalAdded = (r.calendar_events_created || 0) + (r.ics_events_created || 0);
         writeSyncHistory(totalAdded);
         renderSyncHistory();
         await refreshMe();
       } catch (e) {
+        stopPolling();
         $("sync-out").textContent = e.message || "실패했습니다.";
       } finally {
         b.disabled = false;
