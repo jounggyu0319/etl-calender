@@ -123,11 +123,15 @@
     const t = (title || "").trim();
     // 자료·준비물·성적·결과 공지 — 시험 날짜와 무관 → 제외
     const excludeKeywords = [
-      "대비용", "대비 문제", "기출", "연습문제", "올려드렸", "자료 올",
+      "대비용", "대비 문제", "기출문제", "기출 문제", "연습문제", "올려드렸", "자료 올",
       "성적", "결과", "레포트", "프로젝트", "project", "report",
-      "발표 날짜", "날짜 배정", "발표일 배정", "강의 운영", "수업 운영",
+      "발표 날짜", "날짜 배정", "발표일 배정", "수업 운영",
     ];
-    if (excludeKeywords.some((k) => t.toLowerCase().includes(k.toLowerCase()))) return false;
+    const hasExamKeyword = /중간고사|기말고사|midterm|final exam/i.test(t);
+    const excluded = excludeKeywords.some((k) => t.toLowerCase().includes(k.toLowerCase()));
+    // 강의 운영 안내라도 제목에 시험 키워드가 함께 있으면 통과
+    const isOpsOnly = !hasExamKeyword && /강의 운영|수업 운영/i.test(t);
+    if (excluded || isOpsOnly) return false;
 
     if (!examKindFromTitle(t)) {
       if (/\btest\b/i.test(t.toLowerCase())) return true;
