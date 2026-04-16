@@ -135,7 +135,7 @@ def import_from_client(
     for a in fresh:
         # exam 타입 공지는 Claude로 2차 검증 + 날짜 추출
         if a.get("activity_type") == "exam":
-            is_exam, exam_date = classify_exam_announcement(
+            is_exam, exam_date, exam_location = classify_exam_announcement(
                 a.get("title", ""),
                 a.get("description_extra", ""),
                 gemini_key,
@@ -144,10 +144,14 @@ def import_from_client(
                 _LOG.info("Claude: exam 아님, 스킵 → %s", a.get("title", "")[:50])
                 filtered_n += 1
                 continue
-            # Claude가 추출한 날짜로 deadline 덮어쓰기
-            if exam_date:
-                a = {**a, "deadline": exam_date}
-                _LOG.info("Claude 날짜 적용: %s → %s", a.get("title", "")[:40], exam_date)
+            # Claude가 추출한 날짜·장소로 덮어쓰기
+            if exam_date or exam_location:
+                a = {**a}
+                if exam_date:
+                    a["deadline"] = exam_date
+                    _LOG.info("Claude 날짜 적용: %s → %s", a.get("title", "")[:40], exam_date)
+                if exam_location:
+                    a["exam_location"] = exam_location[:200]
 
         inserted, existed, err = insert_assignment_calendar_if_absent(service, a)
         if inserted:

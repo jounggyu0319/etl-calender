@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timedelta, timezone
+
+_SEOUL = timezone(timedelta(hours=9))
 
 __all__ = [
     "classify_exam_kind_from_title",
@@ -129,12 +132,61 @@ def format_calendar_event_summary(assignment: dict) -> str:
     return f"{subj}_{title}"
 
 
+def _format_deadline_kr(deadline_str: str) -> str | None:
+    """ISO 날짜/시각 문자열을 한국어 표기로 변환. 파싱 실패 시 None 반환."""
+    s = (deadline_str or "").strip()
+    if not s:
+        return None
+    try:
+        if "T" in s:
+            raw = s.replace("Z", "+00:00")
+            dt = datetime.fromisoformat(raw)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=_SEOUL)
+            dt = dt.astimezone(_SEOUL)
+            h = dt.hour
+            ampm = "오전" if h < 12 else "오후"
+            h12 = h % 12 or 12
+            return f"{dt.month}월 {dt.day}일 {ampm} {h12}:{dt.minute:02d}"
+        elif re.match(r"^\d{4}-\d{2}-\d{2}$", s):
+            y, mo, d = int(s[:4]), int(s[5:7]), int(s[8:10])
+            return f"{mo}월 {d}일"
+        else:
+            return None
+    except Exception:
+        return None
+
+
 def format_calendar_event_description(assignment: dict) -> str:
-    """메모: eTL 과제 또는 eTL 시험 + 링크 + 추가 설명."""
-    url = str(assignment.get("url") or "").strip()
-    extra = (assignment.get("description_extra") or "").strip()
-    head = "eTL 시험" if _is_exam_activity(assignment) else "eTL 과제"
-    lines = [head, f"링크: {url}" if url else "링크: (없음)"]
-    if extra:
-        lines.extend(["", extra])
+    """메모: 과제면 '과제명 / 마감', 시험이면 '시험 종류 / 날짜 / 장소'."""
+    kind = str(assignment.get("activity_type") or "assign")
+    title = str(assignment.get("title") or "").strip()
+    deadline = str(assignment.get("deadline") or "").strip()
+
+    if _is_exam_activity(assignment):
+        # 시험 종류
+        if kind == "announcement_midterm":
+            exam_label = "중간고사"
+        elif kind == "announcement_final":
+            exam_label = "기말고사"
+        else:
+            ek = classify_exam_kind_from_title(title)
+            exam_label = {"midterm": "중간고사", "final": "기말고사"}.get(ek or "", "시험")
+
+        lines = [exam_label]
+        date_str = _format_deadline_kr(deadline)
+        if date_str:
+            lines.append(f"날짜: {date_str}")
+        location = str(assignment.get("exam_location") or "").strip()
+        if location:
+            lines.append(f"장소: {location}")
+        return "\n".join(lines)[:8000]
+
+    # 과제 / 퀴즈
+    lines = []
+    if title:
+        lines.append(title)
+    date_str = _format_deadline_kr(deadline)
+    if date_str:
+        lines.append(f"마감: {date_str}")
     return "\n".join(lines)[:8000]

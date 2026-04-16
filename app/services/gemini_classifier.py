@@ -20,7 +20,7 @@ _PROMPT = """다음 대학 강의 공지의 제목과 내용을 보고 판단하
 내용: {body}
 
 아래 JSON 형식으로만 답하세요 (다른 텍스트 없이):
-{{"is_exam": true 또는 false, "exam_date": "YYYY-MM-DD" 또는 null}}
+{{"is_exam": true 또는 false, "exam_date": "YYYY-MM-DD" 또는 null, "exam_location": "장소" 또는 null}}
 
 판단 기준 (한국어·영어 공지 모두 적용):
 - is_exam=true: 시험/exam이 언제(날짜·시간·장소) 열리는지 알리는 공지
@@ -33,7 +33,9 @@ _PROMPT = """다음 대학 강의 공지의 제목과 내용을 보고 판단하
   * 성적/결과/grade released 공지
   * 발표 날짜 배정, 수업 운영 공지 (시험 날짜 언급 없음)
 - exam_date: is_exam=true일 때 시험 날짜(YYYY-MM-DD, 한국 기준 연도 사용). 날짜가 없으면 null. is_exam=false면 null.
-  ★ "4.24(예)" → 2026-04-24, "4월 24일" → 2026-04-24 형식으로 변환"""
+  ★ "4.24(예)" → 2026-04-24, "4월 24일" → 2026-04-24 형식으로 변환
+- exam_location: is_exam=true일 때 시험 장소(강의실·건물·호실). 없으면 null.
+  ★ 예) "83동 305호", "101동 B02호", "관악캠퍼스 220동" 형식으로 간결하게"""
 
 _FALLBACK_KEYWORDS = [
     "중간고사", "기말고사", "시험", "과제", "퀴즈",
@@ -41,29 +43,29 @@ _FALLBACK_KEYWORDS = [
 ]
 
 # 동일 제목 반복 호출 방지 — 프로세스 내 메모리 캐시
-_cache: dict[str, tuple[bool, str | None]] = {}
+_cache: dict[str, tuple[bool, str | None, str | None]] = {}
 
 
-def _keyword_fallback(title: str, body: str) -> tuple[bool, str | None]:
+def _keyword_fallback(title: str, body: str) -> tuple[bool, str | None, str | None]:
     text = (title + " " + body).lower()
-    return any(kw in text for kw in _FALLBACK_KEYWORDS), None
+    return any(kw in text for kw in _FALLBACK_KEYWORDS), None, None
 
 
 def classify_exam_announcement(
     title: str,
     body: str,
     api_key: str | None,
-) -> tuple[bool, str | None]:
+) -> tuple[bool, str | None, str | None]:
     """
-    Claude Haiku로 공지가 시험 일정 공지인지 판단하고 날짜 추출.
-    반환: (is_exam, exam_date_iso_or_None)
+    Claude Haiku로 공지가 시험 일정 공지인지 판단하고 날짜·장소 추출.
+    반환: (is_exam, exam_date_iso_or_None, exam_location_or_None)
     - api_key 없으면 키워드 fallback
     - API 오류 시 키워드 fallback
     """
     if not api_key:
         return _keyword_fallback(title, body)
 
-    cache_key = f"v2|{title[:100]}|{body[:400]}"
+    cache_key = f"v3|{title[:100]}|{body[:400]}"
     if cache_key in _cache:
         _LOG.info("분류기 캐시 히트 → %s", title[:40])
         return _cache[cache_key]
@@ -74,7 +76,7 @@ def classify_exam_announcement(
     )
     payload = json.dumps({
         "model": _MODEL,
-        "max_tokens": 60,
+        "max_tokens": 100,
         "messages": [{"role": "user", "content": prompt}],
     }).encode("utf-8")
 
@@ -107,8 +109,11 @@ def classify_exam_announcement(
         exam_date = parsed.get("exam_date") or None
         if exam_date and not isinstance(exam_date, str):
             exam_date = None
-        result = (is_exam, exam_date)
-        _LOG.info("Claude 분류 [%s] → is_exam=%s date=%s", title[:40], is_exam, exam_date)
+        exam_location = parsed.get("exam_location") or None
+        if exam_location and not isinstance(exam_location, str):
+            exam_location = None
+        result = (is_exam, exam_date, exam_location)
+        _LOG.info("Claude 분류 [%s] → is_exam=%s date=%s location=%s", title[:40], is_exam, exam_date, exam_location)
         _cache[cache_key] = result
         return result
     except (json.JSONDecodeError, KeyError, TypeError):
@@ -134,5 +139,5 @@ def is_exam_schedule_announcement(
     body: str,
     api_key: str | None,
 ) -> bool:
-    is_exam, _ = classify_exam_announcement(title, body, api_key)
+    is_exam, _, _loc = classify_exam_announcement(title, body, api_key)
     return is_exam

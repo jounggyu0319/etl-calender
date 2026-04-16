@@ -308,8 +308,8 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
             body_html = str(topic.get("message") or "")
             body_text = _canvas_html_to_plain(body_html, limit=7900)
 
-            # Claude 2차 분류 — 대체 과제·자료성 공지 제거 + 날짜 추출
-            is_exam, exam_date = classify_exam_announcement(
+            # Claude 2차 분류 — 대체 과제·자료성 공지 제거 + 날짜·장소 추출
+            is_exam, exam_date, exam_location = classify_exam_announcement(
                 title, body_text, settings.anthropic_api_key
             )
             if not is_exam:
@@ -318,23 +318,24 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
 
             # Claude가 추출한 날짜 우선, 없으면 본문 전달 → parse_deadline이 추출
             deadline_val = exam_date if exam_date else body_text[:2000]
-            logger.info("[canvas_sync] Claude 날짜: %s → %s", title[:40], exam_date or "(본문 fallback)")
+            logger.info("[canvas_sync] Claude 날짜: %s → %s, 장소: %s", title[:40], exam_date or "(본문 fallback)", exam_location)
 
             eid = f"canvas-{cid}-announce-{tid}"
             html_url = str(topic.get("html_url") or "").strip()
             url = html_url or f"{MYETL_CANVAS_BASE}/courses/{cid}/discussion_topics/{tid}"
-            fresh.append(
-                {
-                    "id": eid,
-                    "title": title[:500],
-                    "subject": subj[:256],
-                    "url": url,
-                    "activity_type": "exam",
-                    "deadline": deadline_val,
-                    "posted_at": str(posted).strip(),
-                    "description_extra": (body_text or title)[:7900],
-                }
-            )
+            item: dict = {
+                "id": eid,
+                "title": title[:500],
+                "subject": subj[:256],
+                "url": url,
+                "activity_type": "exam",
+                "deadline": deadline_val,
+                "posted_at": str(posted).strip(),
+                "description_extra": (body_text or title)[:7900],
+            }
+            if exam_location:
+                item["exam_location"] = exam_location[:200]
+            fresh.append(item)
             ann_n += 1
 
     set_progress(uid, running=True, phase="캘린더에 반영 중…", course_index=total, course_total=total, course_name="")
