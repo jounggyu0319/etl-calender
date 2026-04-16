@@ -15,6 +15,7 @@ from app.models import User
 from app.schemas import SyncResult
 from app.security import decrypt_text, encrypt_text
 from app.services.calendar_service import announcement_title_matches_exam_keywords
+from app.services.gemini_classifier import classify_exam_announcement
 from app.services.sync_progress import clear_progress, set_progress
 from app.snu_academic_calendar import due_at_in_active_window, posted_at_in_active_window
 from calendar_service import ensure_calendar_service, insert_assignment_calendar_if_absent
@@ -260,6 +261,19 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
             if tid_raw is None:
                 continue
             tid = int(tid_raw)
+
+            # 공지 본문 추출 (날짜 파싱 + Claude 분류에 필요)
+            body_html = str(topic.get("message") or "")
+            body_text = _canvas_html_to_plain(body_html, limit=7900)
+
+            # Claude 2차 분류 — 대체 과제·자료성 공지 제거
+            is_exam, _ = classify_exam_announcement(
+                title, body_text, settings.anthropic_api_key
+            )
+            if not is_exam:
+                logger.info("[canvas_sync] Claude: exam 아님, 스킵 → %s", title[:50])
+                continue
+
             eid = f"canvas-{cid}-announce-{tid}"
             html_url = str(topic.get("html_url") or "").strip()
             url = html_url or f"{MYETL_CANVAS_BASE}/courses/{cid}/discussion_topics/{tid}"
@@ -270,9 +284,9 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
                     "subject": subj[:256],
                     "url": url,
                     "activity_type": "exam",
-                    "deadline": "",
+                    "deadline": body_text[:2000],   # parse_deadline이 날짜 추출
                     "posted_at": str(posted).strip(),
-                    "description_extra": title,
+                    "description_extra": (body_text or title)[:7900],
                 }
             )
             ann_n += 1

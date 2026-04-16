@@ -68,12 +68,16 @@ def announcement_title_matches_exam_keywords(title: str) -> bool:
         return False
     tl = t.lower()
 
-    # 자료성·결과성 공지 제외 키워드
+    # 자료성·결과성·대체과제 공지 제외 키워드
     _EXCLUDE = [
         "대비용", "대비 문제", "기출문제", "기출 문제", "연습문제",
         "올려드렸", "자료 올",
         "성적", "결과", "레포트", "프로젝트", "project", "report",
         "발표 날짜", "날짜 배정", "발표일 배정", "수업 운영",
+        # 시험 대체 과제·서평 공지
+        "대체 과제", "대체과제", "서평", "take-home", "takehome",
+        # 휴강 안내
+        "휴강",
     ]
     has_exam_kw = bool(re.search(r"중간고사|기말고사|midterm|final exam", tl))
     excluded = any(k.lower() in tl for k in _EXCLUDE)
