@@ -30,6 +30,10 @@
   <style>
     body { font-family: "Pretendard", ui-sans-serif, system-ui, sans-serif; }
     details summary::-webkit-details-marker { display: none; }
+    .color-dot.selected {
+      box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #003876;
+      transform: scale(1.06);
+    }
   </style>
 </head>
 <body class="min-h-dvh bg-surface text-slate-900 antialiased pb-[max(1.5rem,env(safe-area-inset-bottom))]">
@@ -77,6 +81,14 @@
           로그아웃
         </button>
       </div>
+      <div class="mt-5 rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+        <p class="text-sm font-semibold text-slate-800">처음이라면 이렇게 시작해요</p>
+        <ol class="mt-2 list-decimal space-y-1.5 pl-5 text-sm text-slate-600">
+          <li>Google 캘린더 연결</li>
+          <li>myetl 구독 URL 또는 Canvas 토큰 등록</li>
+          <li>동기화 버튼 클릭!</li>
+        </ol>
+      </div>
     </section>
 
     <!-- 로그인 후 대시보드 -->
@@ -119,7 +131,7 @@
         <div id="sync-row-one" class="mb-4">
           <button type="button" id="btn-sync"
             class="flex min-h-[3rem] w-full items-center justify-center gap-2 rounded-2xl bg-snu px-4 py-3.5 text-[15px] font-semibold text-white shadow-lift transition hover:bg-[#002a5c] active:scale-[0.99] disabled:opacity-45">
-            <span class="text-lg" aria-hidden="true">📅</span> 간편 동기화
+            <span class="text-lg" aria-hidden="true">📅</span> 구독 URL로 동기화
           </button>
           <p class="mt-2.5 text-center text-xs leading-relaxed text-slate-500 sm:text-left">캘린더 구독 URL 기준으로 빠르게 반영해요.</p>
         </div>
@@ -127,25 +139,14 @@
         <div id="sync-row-etl" class="hidden space-y-3" style="display:none;">
           <button type="button" id="btn-etl-continue"
             class="flex min-h-[3rem] w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3.5 text-[15px] font-semibold text-white shadow-md transition hover:bg-slate-800 active:scale-[0.99] disabled:opacity-45">
-            <span class="text-lg" aria-hidden="true">🔄</span> 전체 동기화 (Canvas)
+            <span class="text-lg" aria-hidden="true">🔄</span> Canvas 토큰으로 동기화
           </button>
           <p class="text-xs leading-relaxed text-slate-500">Canvas API 토큰을 저장한 뒤 눌러 주세요. Chrome 확장으로도 동기화할 수 있어요.</p>
         </div>
 
         <p id="sync-hint" class="mt-4 rounded-xl bg-slate-100/80 px-3 py-2.5 text-xs leading-relaxed text-slate-600"></p>
         <div id="sync-history" class="mt-3 hidden rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700"></div>
-        <p id="sync-out" class="mt-3 whitespace-pre-wrap rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm leading-relaxed text-slate-700"></p>
-      </div>
-
-      <!-- 동기화 히스토리 -->
-      <div id="history-card" class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card sm:p-6" style="display:none;">
-        <div class="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <h2 class="text-lg font-bold text-slate-900">추가된 일정</h2>
-            <p class="mt-0.5 text-sm text-slate-500">캘린더에 추가된 항목이 날짜별로 표시됩니다.</p>
-          </div>
-        </div>
-        <div id="history-list" class="space-y-4 text-sm"></div>
+        <p id="sync-out" class="mt-3 hidden whitespace-pre-wrap rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm leading-relaxed text-slate-700"></p>
       </div>
 
       <!-- 설정 -->
@@ -168,6 +169,15 @@
             <h3 class="text-sm font-semibold text-slate-800">캘린더 구독 URL</h3>
             <span class="text-xs text-slate-400">간편 동기화용</span>
           </div>
+          <details class="mb-3 rounded-xl border border-slate-200 bg-slate-50/70">
+            <summary class="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-slate-700 [&::-webkit-details-marker]:hidden">
+              ? myetl 캘린더 구독 URL(iCal)이 뭔가요?
+            </summary>
+            <div class="border-t border-slate-200 px-3 py-2.5 text-xs leading-relaxed text-slate-600">
+              myetl(수업 관리 시스템)에서 발급하는 개인 캘린더 링크예요. 이 URL을 등록하면 서버가 주기적으로 일정을 가져와 Google 캘린더에 자동 추가해요.<br />
+              발급 방법: myetl 로그인 → 캘린더 → '캘린더 내보내기' → URL 복사
+            </div>
+          </details>
           <label for="moodle-feed-url" class="sr-only">캘린더 구독 링크</label>
           <textarea id="moodle-feed-url" rows="2" spellcheck="false"
             class="w-full resize-y rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-900 shadow-sm outline-none ring-snu/15 focus:border-snu focus:ring-4"
@@ -186,6 +196,15 @@
             <h3 class="text-sm font-semibold text-slate-800">Canvas API 토큰</h3>
             <span class="text-xs text-slate-400">전체 동기화(서버)</span>
           </div>
+          <details class="mb-3 rounded-xl border border-slate-200 bg-white/70">
+            <summary class="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-slate-700 [&::-webkit-details-marker]:hidden">
+              ? Canvas API 토큰이 뭔가요?
+            </summary>
+            <div class="border-t border-slate-200 px-3 py-2.5 text-xs leading-relaxed text-slate-600">
+              myetl이 여러분 계정에 안전하게 접근할 수 있도록 허용하는 비밀번호 같은 키예요. 비밀번호 자체를 저장하지 않고, 이 토큰만으로 과제·퀴즈를 가져올 수 있어요.<br />
+              발급 방법: myetl 로그인 → 우측 상단 프로필 → 설정 → '새 액세스 토큰' 생성
+            </div>
+          </details>
           <label for="canvas-api-token" class="sr-only">Canvas 액세스 토큰</label>
           <input id="canvas-api-token" type="password" autocomplete="off" spellcheck="false"
             placeholder="myetl 프로필 → «새 액세스 토큰»"
@@ -196,6 +215,27 @@
           <button type="button" id="btn-save-canvas-token"
             class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 sm:w-auto">
             Canvas 토큰 저장
+          </button>
+        </div>
+
+        <div class="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+          <div class="mb-3 flex items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold text-slate-800">캘린더 색상</h3>
+            <span class="text-xs text-slate-400">Google 기본 팔레트</span>
+          </div>
+          <div class="space-y-3">
+            <div>
+              <p class="mb-1.5 text-xs font-medium text-slate-600">과제 색상</p>
+              <div id="task-color-picker" class="flex flex-wrap gap-2"></div>
+            </div>
+            <div>
+              <p class="mb-1.5 text-xs font-medium text-slate-600">시험 색상</p>
+              <div id="exam-color-picker" class="flex flex-wrap gap-2"></div>
+            </div>
+          </div>
+          <button type="button" id="btn-save-color-settings"
+            class="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 sm:w-auto">
+            색상 저장
           </button>
         </div>
       </div>
@@ -242,6 +282,19 @@
         </button>
         <pre id="billing-out" class="mt-3 max-h-64 overflow-auto rounded-xl bg-slate-900 p-3 text-xs leading-relaxed text-slate-200"></pre>
       </div>
+
+      <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card sm:p-6">
+        <h2 class="text-base font-bold text-slate-900">버그 및 기타 제보</h2>
+        <p class="mt-1 text-sm text-slate-500">사용 중 불편한 점이나 오류가 있으면 알려주세요.</p>
+        <textarea id="feedback-text"
+          class="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-900 shadow-sm outline-none ring-snu/15 focus:border-snu focus:ring-4"
+          rows="4"
+          placeholder="어떤 문제가 발생했나요? 스크린샷과 함께 알려주시면 더 빠르게 해결할 수 있어요."></textarea>
+        <button type="button" id="btn-feedback-mail"
+          class="mt-3 rounded-xl bg-snu px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#002a5c]">
+          이메일로 보내기
+        </button>
+      </div>
     </section>
 
     <footer class="mt-10 pb-6 text-center text-xs leading-relaxed text-slate-400 sm:text-left">
@@ -254,6 +307,13 @@
     const banner = $("banner");
     const tokenKey = "etlcal_token";
     const syncHistoryKey = "etlcal_sync_history";
+    const gcalColors = {
+      "1": "#7986cb", "2": "#33b679", "3": "#8e24aa", "4": "#e67c73",
+      "5": "#f6c026", "6": "#f5511d", "7": "#039be5", "8": "#616161",
+      "9": "#3f51b5", "10": "#0b8043", "11": "#d50000",
+    };
+    let selectedTaskColorId = "9";
+    let selectedExamColorId = "11";
 
     function escHtml(s) {
       return String(s)
@@ -341,80 +401,123 @@
     }
 
     function renderSyncHistory() {
-      // 이전 localStorage 기반 히스토리 — 하위 호환용으로 남겨둠 (sync-out 영역에 표시 안 함)
-    }
-
-    const _activityLabel = { assign: "과제", quiz: "퀴즈", exam: "시험", announcement_midterm: "시험", announcement_final: "시험" };
-
-    function _dateGroupKey(isoUtc) {
-      try {
-        return new Date(isoUtc).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "long", day: "numeric" });
-      } catch { return isoUtc.slice(0, 10); }
-    }
-
-    async function loadSyncHistory() {
-      const card = $("history-card");
-      const list = $("history-list");
-      if (!card || !list) return;
-      try {
-        const rows = await api("/api/sync/history?limit=100");
-        if (!rows || rows.length === 0) {
-          card.style.display = "none";
-          return;
-        }
-        card.style.display = "block";
-        // 날짜별 그룹화 (synced_at 기준, KST)
-        const groups = {};
-        for (const r of rows) {
-          const key = _dateGroupKey(r.synced_at);
-          if (!groups[key]) groups[key] = [];
-          groups[key].push(r);
-        }
-        let html = "";
-        for (const [dateLabel, items] of Object.entries(groups)) {
-          html += `<div>
-            <p class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">${escHtml(dateLabel)} 추가됨</p>
-            <ul class="space-y-1.5">`;
-          for (const it of items) {
-            const typeLabel = _activityLabel[it.activity_type] || it.activity_type;
-            const badge = it.activity_type === "exam" || it.activity_type.startsWith("announcement")
-              ? `<span class="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600 ring-1 ring-red-200">${escHtml(typeLabel)}</span>`
-              : `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">${escHtml(typeLabel)}</span>`;
-            const dl = it.deadline_date ? `<span class="ml-auto shrink-0 text-[11px] text-slate-400">마감 ${escHtml(it.deadline_date)}</span>` : "";
-            html += `<li class="flex flex-wrap items-start gap-1.5 rounded-lg bg-slate-50 px-3 py-2">
-              ${badge}
-              <span class="min-w-0 flex-1 break-words text-sm text-slate-800">${escHtml(it.event_title)}</span>
-              ${dl}
-            </li>`;
-          }
-          html += `</ul></div>`;
-        }
-        list.innerHTML = html;
-      } catch {
-        card.style.display = "none";
+      const el = $("sync-history");
+      if (!el) return;
+      const h = readSyncHistory();
+      if (!h) {
+        el.classList.remove("hidden");
+        el.innerHTML = `
+          <div class="text-sm text-slate-600">
+            아직 동기화된 일정이 없어요. 위에서 동기화를 실행해보세요!
+          </div>
+        `;
+        return;
       }
+      const when = formatKSTShort(h.at);
+      const added = Number.isFinite(h.added) ? h.added : 0;
+      el.classList.remove("hidden");
+      el.innerHTML = `
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-xs font-semibold text-slate-500">동기화 히스토리</p>
+            <p class="mt-1 text-sm font-semibold text-slate-900">마지막 동기화: ${escHtml(when || h.at)}</p>
+            <p class="mt-1 text-sm text-slate-600">이번 동기화에서 <span class="font-semibold text-snu">${added}</span>건 추가</p>
+          </div>
+          <span class="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">최근</span>
+        </div>
+      `;
     }
 
-    function statusChip(ok, label, sub, checkedAt, connOk) {
+    function renderColorPicker(containerId, selectedId, roleName) {
+      const root = $(containerId);
+      if (!root) return;
+      root.innerHTML = Object.entries(gcalColors).map(([cid, hex]) => {
+        const selected = cid === selectedId;
+        return `
+          <button
+            type="button"
+            class="color-dot h-6 w-6 rounded-full border border-white transition ${selected ? "selected" : ""}"
+            style="background:${hex}"
+            data-role="${roleName}"
+            data-color-id="${cid}"
+            aria-label="color-${cid}"
+            title="색상 ${cid}"
+          >${selected ? '<span class="text-[11px] font-bold text-white drop-shadow-sm">✓</span>' : ""}</button>
+        `;
+      }).join("");
+    }
+
+    function renderColorPickers() {
+      renderColorPicker("task-color-picker", selectedTaskColorId, "task");
+      renderColorPicker("exam-color-picker", selectedExamColorId, "exam");
+    }
+
+    function bindColorPickerEvents() {
+      const clickHandler = (e) => {
+        const btn = e.target.closest("button[data-role][data-color-id]");
+        if (!btn) return;
+        const role = btn.getAttribute("data-role");
+        const cid = btn.getAttribute("data-color-id");
+        if (role === "task") selectedTaskColorId = cid;
+        if (role === "exam") selectedExamColorId = cid;
+        renderColorPickers();
+      };
+      $("task-color-picker")?.addEventListener("click", clickHandler);
+      $("exam-color-picker")?.addEventListener("click", clickHandler);
+    }
+
+    async function restoreColorSettingsFromMe() {
+      if (!token()) return;
+      try {
+        const me = await api("/api/me/");
+        const cs = me.color_settings || {};
+        selectedTaskColorId = String(
+          me.assignment_color_id || me.task_color_id || cs.assignment_color_id || cs.task_color_id || selectedTaskColorId
+        );
+        selectedExamColorId = String(
+          me.exam_color_id || cs.exam_color_id || selectedExamColorId
+        );
+      } catch {
+        /* ignore */
+      }
+      if (!gcalColors[selectedTaskColorId]) selectedTaskColorId = "9";
+      if (!gcalColors[selectedExamColorId]) selectedExamColorId = "11";
+      renderColorPickers();
+    }
+
+    function setSyncOutMessage(text) {
+      const el = $("sync-out");
+      const msg = (text || "").trim();
+      if (!msg) {
+        el.textContent = "";
+        el.classList.add("hidden");
+        return;
+      }
+      el.textContent = msg;
+      el.classList.remove("hidden");
+    }
+
+    function toFriendlyError(e) {
+      const raw = String((e && e.message) || e || "").trim();
+      if (!raw) return "요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.";
+      if (raw.toLowerCase().includes("google")) return "Google 캘린더를 먼저 연결해 주세요. (1단계)";
+      if (raw.includes("401") || raw.includes("unauthorized")) return "로그인이 만료되었어요. 다시 로그인해 주세요.";
+      if (raw.toLowerCase().includes("network") || raw.toLowerCase().includes("failed to fetch")) return "네트워크 연결을 확인한 뒤 다시 시도해 주세요.";
+      return raw;
+    }
+
+    function statusChip(ok, label, sub) {
       const tone = ok
         ? "border-emerald-200/80 bg-emerald-50/90 text-emerald-900"
         : "border-slate-200 bg-slate-50 text-slate-600";
       const dot = ok ? "bg-emerald-500" : "bg-slate-300";
-      let checkLine = "";
-      if (checkedAt) {
-        const mark = connOk === true ? "✅" : connOk === false ? "❌" : "";
-        checkLine = `<p class="mt-1 text-xs opacity-60">확인: ${escHtml(formatKSTShort(checkedAt))} ${mark}</p>`;
-      }
       return `
-        <div class="rounded-xl border px-3.5 py-3 ${tone}">
-          <div class="flex items-center justify-between gap-3">
-            <div class="flex min-w-0 items-center gap-2.5">
-              <span class="h-2 w-2 shrink-0 rounded-full ${dot}" aria-hidden="true"></span>
-              <span class="text-sm font-semibold">${escHtml(label)}</span>
-            </div>
-            <span class="shrink-0 text-xs font-medium opacity-90">${escHtml(sub)}</span>
+        <div class="flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 ${tone}">
+          <div class="flex min-w-0 items-center gap-2.5">
+            <span class="h-2 w-2 shrink-0 rounded-full ${dot}" aria-hidden="true"></span>
+            <span class="text-sm font-semibold">${escHtml(label)}</span>
           </div>
-          ${checkLine}
+          <span class="shrink-0 text-xs font-medium opacity-90">${escHtml(sub)}</span>
         </div>`;
     }
 
@@ -424,19 +527,6 @@
       $("dash").classList.add("hidden");
       $("auth-card").classList.remove("hidden");
       hideBanner();
-    }
-
-    async function checkConnections() {
-      const btn = $("check-conn-btn");
-      if (btn) { btn.disabled = true; btn.textContent = "확인 중…"; }
-      try {
-        await api("/api/me/check-connections", { method: "POST" });
-        await refreshMe();
-      } catch (e) {
-        showBanner("error", "연결 확인 실패: " + e.message);
-      } finally {
-        if (btn) { btn.disabled = false; btn.textContent = "🔄 연결 확인"; }
-      }
     }
 
     async function refreshMe() {
@@ -453,7 +543,6 @@
         $("dash").style.display = "block";
         $("dash").classList.remove("hidden");
         renderSyncHistory();
-        loadSyncHistory();
 
         $("me-kv").innerHTML = `
           <div class="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
@@ -461,28 +550,16 @@
             <span class="rounded-full bg-white px-2.5 py-0.5 text-xs font-semibold text-snu ring-1 ring-slate-200">${escHtml(me.plan)}</span>
           </div>
           <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            ${statusChip(me.has_google, "Google", me.has_google ? "연결됨" : "미연결", me.conn_checked_at, me.google_conn_ok)}
-            ${statusChip(me.has_moodle_calendar_feed, "구독 URL", me.has_moodle_calendar_feed ? "저장됨" : "없음", me.conn_checked_at, me.ical_conn_ok)}
-            ${statusChip(me.has_canvas_token, "Canvas 토큰", me.has_canvas_token ? "저장됨" : "없음", me.conn_checked_at, me.canvas_conn_ok)}
-          </div>
-          <div class="mt-2 flex justify-end">
-            <button id="check-conn-btn" onclick="checkConnections()"
-              class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 active:scale-95 transition-all">
-              🔄 연결 확인
-            </button>
+            ${statusChip(me.has_google, "Google", me.has_google ? "연결됨" : "미연결")}
+            ${statusChip(me.has_moodle_calendar_feed, "구독 URL", me.has_moodle_calendar_feed ? "저장됨" : "없음")}
+            ${statusChip(me.has_canvas_token, "Canvas 토큰", me.has_canvas_token ? "저장됨" : "없음")}
           </div>
         `;
 
-        // 저장된 구독 URL이 있으면 textarea에 채워서 사용자가 확인할 수 있게
-        if (me.moodle_calendar_feed_url) {
-          $("moodle-feed-url").value = me.moodle_calendar_feed_url;
-        }
-
         const lastAuto = me.last_auto_sync_at;
         const lastStr = lastAuto ? formatKSTShort(lastAuto) : "";
-        const syncMark = me.last_sync_ok === true ? " ✅" : me.last_sync_ok === false ? " ❌" : "";
         $("auto-sync-last").textContent =
-          "마지막 자동 동기화: " + (lastStr || "—") + syncMark;
+          "마지막 자동 동기화: " + (lastStr || "—");
         $("auto-sync-toggle").checked = !!me.auto_sync_enabled;
         const autoNeed = !me.has_google || !me.has_moodle_calendar_feed;
         $("auto-sync-hint").textContent = autoNeed
@@ -506,6 +583,25 @@
         showBanner("err", e.message || "세션이 만료되었습니다. 다시 로그인해 주세요.");
       }
     }
+
+    // refreshMe 내부 로직은 유지하고, 후처리만 덧붙임
+    const _refreshMeOriginal = refreshMe;
+    refreshMe = async (...args) => {
+      const out = await _refreshMeOriginal(...args);
+      // refreshMe에서 버튼 텍스트를 덮어쓸 수 있어 후처리로 비개발자 친화 문구 고정
+      if ($("btn-sync")) {
+        $("btn-sync").innerHTML = '<span class="text-lg" aria-hidden="true">📅</span> 구독 URL로 동기화';
+      }
+      if ($("btn-etl-continue")) {
+        $("btn-etl-continue").innerHTML = '<span class="text-lg" aria-hidden="true">🔄</span> Canvas 토큰으로 동기화';
+      }
+      if ($("auto-sync-block") && $("auto-sync-block").firstElementChild) {
+        const titleEl = $("auto-sync-block").querySelector("span.text-sm.font-semibold");
+        if (titleEl) titleEl.textContent = "매일 자동으로 동기화하기";
+      }
+      await restoreColorSettingsFromMe();
+      return out;
+    };
 
     if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "127.0.0.1" || location.hostname === "localhost")) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
@@ -566,6 +662,24 @@
         await refreshMe();
       } catch (e) {
         showBanner("err", e.message || "저장에 실패했습니다.");
+      }
+    };
+
+    $("btn-save-color-settings").onclick = async () => {
+      hideBanner();
+      try {
+        await api("/api/me/color-settings", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            assignment_color_id: selectedTaskColorId,
+            exam_color_id: selectedExamColorId,
+          }),
+        });
+        showBanner("ok", "캘린더 색상을 저장했습니다.");
+        await refreshMe();
+      } catch (e) {
+        showBanner("err", toFriendlyError(e));
       }
     };
 
@@ -696,64 +810,41 @@
     }
 
     $("btn-sync").onclick = async () => {
-      $("sync-out").textContent = "";
+      setSyncOutMessage("");
       try {
         const r = await api("/api/sync/", { method: "POST" });
-        $("sync-out").textContent = formatSyncResult(r);
+        setSyncOutMessage(formatSyncResult(r));
         const totalAdded = (r.calendar_events_created || 0) + (r.ics_events_created || 0);
         writeSyncHistory(totalAdded);
         renderSyncHistory();
         await refreshMe();
-        await loadSyncHistory();
       } catch (e) {
-        $("sync-out").textContent = e.message || "동기화에 실패했습니다.";
+        setSyncOutMessage(toFriendlyError(e) || "동기화에 실패했습니다.");
       }
     };
 
     $("btn-etl-continue").onclick = async () => {
-      $("sync-out").textContent = "";
+      setSyncOutMessage("");
       const b = $("btn-etl-continue");
       b.disabled = true;
-
-      // Progress 폴링 시작
-      let pollTimer = null;
-      function startPolling() {
-        pollTimer = setInterval(async () => {
-          try {
-            const p = await api("/api/sync/progress");
-            if (p.running) {
-              const idx = p.course_index || 0;
-              const tot = p.course_total || 0;
-              const name = p.course_name || "";
-              const countStr = tot > 0 ? ` (${idx}/${tot})` : "";
-              $("sync-out").textContent = name
-                ? `${name} 스캔 중…${countStr}`
-                : (p.phase || "동기화 중…");
-            }
-          } catch { /* 폴링 오류는 무시 */ }
-        }, 1000);
-      }
-      function stopPolling() {
-        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-      }
-
       try {
-        startPolling();
-        $("sync-out").textContent = "강의 목록 불러오는 중…";
         const r = await api("/api/sync/canvas", { method: "POST" });
-        stopPolling();
-        $("sync-out").textContent = formatSyncResult(r);
+        setSyncOutMessage(formatSyncResult(r));
         const totalAdded = (r.calendar_events_created || 0) + (r.ics_events_created || 0);
         writeSyncHistory(totalAdded);
         renderSyncHistory();
         await refreshMe();
-        await loadSyncHistory();
       } catch (e) {
-        stopPolling();
-        $("sync-out").textContent = e.message || "실패했습니다.";
+        setSyncOutMessage(toFriendlyError(e) || "실패했습니다.");
       } finally {
         b.disabled = false;
       }
+    };
+
+    $("btn-feedback-mail").onclick = () => {
+      const text = $("feedback-text")?.value || "";
+      window.location.href =
+        `mailto:jounggyushin@gmail.com?subject=${encodeURIComponent("eTL 캘린더 피드백")}&body=${encodeURIComponent(text)}`;
     };
 
     $("btn-billing").onclick = async () => {
@@ -792,6 +883,8 @@
       history.replaceState({}, "", "/");
     }
 
+    renderColorPickers();
+    bindColorPickerEvents();
     refreshMe();
   </script>
 </body>
