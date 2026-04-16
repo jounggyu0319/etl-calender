@@ -138,8 +138,11 @@ def _format_deadline_kr(deadline_str: str) -> str | None:
     if not s:
         return None
     try:
-        if "T" in s:
+        # 원인: timezone 없는 ISO가 공백 구분("YYYY-MM-DD HH:MM")으로 오면 기존 분기에서 누락됨.
+        if "T" in s or re.match(r"^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}", s):
             raw = s.replace("Z", "+00:00")
+            if "T" not in raw and " " in raw:
+                raw = raw.replace(" ", "T", 1)
             dt = datetime.fromisoformat(raw)
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=_SEOUL)
@@ -153,7 +156,7 @@ def _format_deadline_kr(deadline_str: str) -> str | None:
             return f"{mo}월 {d}일"
         else:
             return None
-    except Exception:
+    except ValueError:
         return None
 
 

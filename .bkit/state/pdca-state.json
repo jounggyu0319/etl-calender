@@ -4,7 +4,35 @@
   "activeFeature": "debugging-and-stability",
   "phase": "act",
   "iteration": 2,
-  "lastUpdated": "2026-04-16T-v2",
+  "lastUpdated": "2026-04-16T-v3",
+  "workflow": {
+    "model": "commander-worker",
+    "commanders": ["사용자(jounggyu)", "Claude Code"],
+    "workers": [
+      {
+        "tool": "Cursor Agent",
+        "role": "developer",
+        "responsibility": "백엔드·로직 코드 구현, 신규 기능, API 작업"
+      },
+      {
+        "tool": "Cursor Agent",
+        "role": "debugger",
+        "responsibility": "버그 원인 분석, 로그 추적, 수정 구현"
+      },
+      {
+        "tool": "Cursor Agent",
+        "role": "designer",
+        "responsibility": "UI/UX, static/index.html 스타일·레이아웃 작업"
+      }
+    ],
+    "principles": [
+      "Claude Code + 사용자가 작업 분석·설계·명령 담당",
+      "Cursor Agent 두 개(개발자/디자이너)가 병렬로 실행",
+      "Claude Code는 Cursor에게 내릴 구체적 프롬프트를 작성해 전달",
+      "Cursor는 명령받은 단일 작업만 수행, 판단은 Claude Code에게"
+    ],
+    "note": "Claude Code가 직접 코드를 짜는 경우도 있으나, 규모 있는 작업은 Cursor 두 agent에게 병렬 하달하는 것이 목표"
+  },
   "features": {
     "etl-extension-no2fa": {
       "phase": "act",
@@ -221,36 +249,18 @@
           "id": "BUG-01",
           "title": "정치학개론_중간고사 제목 오류 (stale etl_id)",
           "priority": "high",
-          "symptom": "캘린더에 '정치학개론_중간고사'로 표시되나 Canvas 실제 과제명은 '중간고사 대체 서평과제 제출'",
-          "root_cause": "이전 sync 시 과제명이 '중간고사'였을 때 etl_id(canvas-*-assign-*)가 캘린더에 삽입됨. 이후 Canvas에서 과제명이 바뀌어도 insert_assignment_calendar_if_absent는 etl_id가 이미 존재하면 스킵(update 없음). 결과: 잘못된 제목이 캘린더에 남음.",
-          "attempted_fixes": [
-            "캘린더에서 정치학개론_중간고사 이벤트 수동 삭제 후 재동기화 → 여전히 같은 제목으로 재생성됨",
-            "원인: Canvas assignment 자체가 '중간고사 대체 서평과제 제출'이고 과제 타입(assign)이므로 Claude 필터 미통과 아님 — 단순 제목 동기화 문제"
-          ],
-          "solution_direction": "insert_assignment_calendar_if_absent에 update 기능 추가: etl_id 존재 시 제목·메모가 다르면 patch(업데이트). 또는 사용자가 캘린더에서 해당 이벤트를 직접 삭제 후 재동기화하면 새 이름으로 삽입됨(단기 workaround).",
-          "files_to_change": ["calendar_service.py (insert_assignment_calendar_if_absent → upsert로 변경)"],
-          "note_2026_04_16": "수동 삭제 후 재동기화 시도 → '정치학개론_중간고사'로 다시 생성됨 확인. Canvas 과제 실제 이름: '중간고사 대체 서평과제 제출' (과목: 정치학개론). Claude로 분류 시 서평 대체 과제이므로 is_exam=false → 캘린더 미삽입 기대하나, activity_type=assign이라 Claude 필터 자체가 적용 안 됨(assign은 직접 삽입). 따라서 과제 제목이 '중간고사'를 포함해도 assign 타입이면 그대로 삽입됨."
+          "status": "resolved",
+          "resolved_at": "2026-04-16",
+          "resolution": "서버 필터(format_calendar_event_summary assign 타입 제목 유지) 수정 후 '정치학개론_중간고사 대체 서평과제 제출'로 정확하게 삽입 확인. 이전 잘못된 이벤트는 서버 필터 수정 전에 만들어진 것이었음."
         },
         {
           "id": "BUG-02",
           "title": "산업조직론 중간고사 (4월 24일) 미수집",
           "priority": "high",
-          "symptom": "산업조직론 중간고사 일정이 캘린더에 추가되지 않음",
-          "canvas_announcement_title": "4.17~5.1 강의 운영 (기출풀이 TA세션, 중간고사, 공휴일)",
-          "root_cause_candidates": [
-            "1) extension announcementMatchesExamTitle: '기출풀이' 포함 → excludeKeywords '기출문제'와 다르므로 통과 가능. '기출풀이'를 추가해야 할 수 있음 vs 통과시켜야 할 수 있음 — 제목 자체는 운영 안내이므로 false가 맞을 수도",
-            "2) isOpsOnly 로직: hasExamKeyword=true('중간고사' 포함) → isOpsOnly=false → 통과해야 함. extension 필터는 통과했을 가능성 높음",
-            "3) Claude 2차 분류: 제목 '4.17~5.1 강의 운영 (기출풀이 TA세션, 중간고사, 공휴일)' + 본문 보고 is_exam=false 판단 가능 (운영 안내로 오해). 본문 내용에 '4월 24일 중간고사' 명시되어 있을 수도",
-            "4) 본문 bodyHasDateHint: '4.17~5.1' 형식은 '월 일' 정규식 미매칭, 본문에 'N월 N일' 없을 경우 → titleHasScheduleWord로만 판단. '변경' 등 일정어가 없으면 스킵될 수 있음"
-          ],
-          "attempted_fixes": [
-            "announcementMatchesExamTitle excludeKeywords 강화 (기출문제→기출풀이 제외 안 함)",
-            "isOpsOnly: !hasExamKeyword && 강의운영 → 중간고사 포함 시 통과",
-            "extension 새로고침 후 재동기화 → 여전히 미수집"
-          ],
-          "solution_direction": "1) Render 로그에서 Claude 분류 결과 직접 확인 (키워드: '분류' 또는 'is_exam'). 2) bodyHasDateHint 정규식을 '\\d{1,2}\\.\\d{1,2}' 도트 형식도 인식하도록 확장. 3) Claude 프롬프트에 '제목에 시험 날짜가 없더라도 본문에 시험 날짜·시간이 있으면 is_exam=true' 명시.",
-          "files_to_change": ["extension/lib/myetl-collect.js (bodyHasDateHint 정규식)", "app/services/gemini_classifier.py (프롬프트 보강)"],
-          "note_2026_04_16": "extension 필터 수정 + 새로고침 + 재동기화 후에도 산업조직론 중간고사 4월 24일 미수집. Claude 로그 직접 확인 필요. 현재 Render 로그 검색에서 'claude' 키워드로 검색 안 됨 (로그 레벨 INFO, Render 무료 플랜 로그 필터 제한)."
+          "status": "resolved",
+          "resolved_at": "2026-04-16",
+          "root_cause": "Claude가 제목 '4.17~5.1 강의 운영 (기출풀이 TA세션, 중간고사, 공휴일)'을 운영 안내로 오분류(is_exam=false). 또한 canvas_sync.py에서 Claude 반환값 exam_date를 _ 로 버리고 있었음. parse_deadline이 '4.24' 점 구분자 미인식 → posted_at(4월 16일) fallback.",
+          "resolution": "① Claude 프롬프트 보강: 제목이 운영 안내여도 본문에 날짜·시간·장소 있으면 is_exam=true 명시. ② canvas_sync.py: exam_date, exam_location 3-tuple로 받아 deadline/exam_location에 저장. ③ parse_deadline: 점 구분자 패턴 추가. ④ Claude body 길이 600→1200자. ⑤ 캐시 키 v3로 강제 재분류. 재동기화 후 4월 24일로 정상 수집 확인."
         },
         {
           "id": "BUG-03",

@@ -92,7 +92,8 @@ def google_callback(
     try:
         flow.fetch_token(authorization_response=callback_url)
     except Exception:
-        logger.exception("Google OAuth token fetch 실패 | url=%s", callback_url)
+        # 원인: callback_url 전체 로그는 OAuth code/state 같은 민감 쿼리를 노출할 수 있음.
+        logger.exception("Google OAuth token fetch 실패 | path=%s", request.url.path)
         return RedirectResponse(url="/?google=token_error", status_code=302)
 
     user = db.get(User, user_id)

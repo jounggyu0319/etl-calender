@@ -44,6 +44,17 @@ _FALLBACK_KEYWORDS = [
 
 # 동일 제목 반복 호출 방지 — 프로세스 내 메모리 캐시
 _cache: dict[str, tuple[bool, str | None, str | None]] = {}
+_CACHE_MAX_SIZE = 2048
+
+
+def _cache_set(cache_key: str, result: tuple[bool, str | None, str | None]) -> None:
+    """원인: 무제한 캐시는 장시간 실행 프로세스에서 메모리 누수로 이어질 수 있음."""
+    if cache_key in _cache:
+        _cache[cache_key] = result
+        return
+    if len(_cache) >= _CACHE_MAX_SIZE:
+        _cache.pop(next(iter(_cache)))
+    _cache[cache_key] = result
 
 
 def _keyword_fallback(title: str, body: str) -> tuple[bool, str | None, str | None]:
@@ -114,7 +125,7 @@ def classify_exam_announcement(
             exam_location = None
         result = (is_exam, exam_date, exam_location)
         _LOG.info("Claude 분류 [%s] → is_exam=%s date=%s location=%s", title[:40], is_exam, exam_date, exam_location)
-        _cache[cache_key] = result
+        _cache_set(cache_key, result)
         return result
     except (json.JSONDecodeError, KeyError, TypeError):
         # JSON 파싱 실패 시 fallback
@@ -124,8 +135,8 @@ def classify_exam_announcement(
         body_err = ""
         try:
             body_err = exc.read().decode("utf-8", errors="replace")[:200]
-        except Exception:
-            pass
+        except (OSError, ValueError) as read_exc:
+            _LOG.debug("Claude HTTPError 본문 파싱 실패: %s", read_exc)
         _LOG.warning("Claude API HTTP %s: %s | %s", exc.code, exc.reason, body_err)
         return _keyword_fallback(title, body)
     except Exception as exc:
