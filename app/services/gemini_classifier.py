@@ -28,8 +28,8 @@ _PROMPT = """다음 대학 강의 공지의 제목과 내용을 보고 판단하
 - exam_date: is_exam=true일 때 시험 날짜(YYYY-MM-DD). 날짜가 없으면 null. is_exam=false면 null."""
 
 _FALLBACK_KEYWORDS = [
-    "시험", "과제", "퀴즈", "exam", "assignment", "quiz",
-    "deadline", "due", "midterm", "final",
+    "중간고사", "기말고사", "시험", "과제", "퀴즈",
+    "exam", "assignment", "quiz", "deadline", "due", "midterm", "final",
 ]
 
 # 동일 제목 반복 호출 방지 — 프로세스 내 메모리 캐시
@@ -88,6 +88,12 @@ def classify_exam_announcement(
             .get("text", "")
             .strip()
         )
+        # 마크다운 코드블록 제거 (```json ... ``` 또는 ``` ... ```)
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip()
         parsed = json.loads(raw)
         is_exam = bool(parsed.get("is_exam", False))
         exam_date = parsed.get("exam_date") or None
