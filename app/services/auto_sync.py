@@ -59,6 +59,7 @@ def run_auto_sync_for_user(db: Session, user: User, settings: Settings) -> None:
     ) = _ical_merge_only(user, settings, google_json)
 
     user.last_auto_sync_at = datetime.now(timezone.utc)
+    user.last_sync_ok = ics_err is None
     _commit_user_google_maybe(db, user, settings, google_json, google_changed)
     if ics_err:
         logger.warning("auto_sync user_id=%s iCal note: %s", user.id, ics_err)

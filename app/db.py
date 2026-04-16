@@ -59,6 +59,20 @@ def init_db() -> None:
         )
     if "canvas_token_enc" not in cols:
         stmts.append("ALTER TABLE users ADD COLUMN canvas_token_enc TEXT")
+    if "last_sync_ok" not in cols:
+        stmts.append("ALTER TABLE users ADD COLUMN last_sync_ok BOOLEAN")
+    if "conn_checked_at" not in cols:
+        stmts.append(
+            "ALTER TABLE users ADD COLUMN conn_checked_at DATETIME"
+            if _is_sqlite
+            else "ALTER TABLE users ADD COLUMN conn_checked_at TIMESTAMP WITH TIME ZONE"
+        )
+    if "google_conn_ok" not in cols:
+        stmts.append("ALTER TABLE users ADD COLUMN google_conn_ok BOOLEAN")
+    if "ical_conn_ok" not in cols:
+        stmts.append("ALTER TABLE users ADD COLUMN ical_conn_ok BOOLEAN")
+    if "canvas_conn_ok" not in cols:
+        stmts.append("ALTER TABLE users ADD COLUMN canvas_conn_ok BOOLEAN")
     for sql in stmts:
         with engine.begin() as conn:
             conn.execute(text(sql))

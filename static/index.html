@@ -353,18 +353,26 @@
       `;
     }
 
-    function statusChip(ok, label, sub) {
+    function statusChip(ok, label, sub, checkedAt, connOk) {
       const tone = ok
         ? "border-emerald-200/80 bg-emerald-50/90 text-emerald-900"
         : "border-slate-200 bg-slate-50 text-slate-600";
       const dot = ok ? "bg-emerald-500" : "bg-slate-300";
+      let checkLine = "";
+      if (checkedAt) {
+        const mark = connOk === true ? "✅" : connOk === false ? "❌" : "";
+        checkLine = `<p class="mt-1 text-xs opacity-60">확인: ${escHtml(formatKSTShort(checkedAt))} ${mark}</p>`;
+      }
       return `
-        <div class="flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 ${tone}">
-          <div class="flex min-w-0 items-center gap-2.5">
-            <span class="h-2 w-2 shrink-0 rounded-full ${dot}" aria-hidden="true"></span>
-            <span class="text-sm font-semibold">${escHtml(label)}</span>
+        <div class="rounded-xl border px-3.5 py-3 ${tone}">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-2.5">
+              <span class="h-2 w-2 shrink-0 rounded-full ${dot}" aria-hidden="true"></span>
+              <span class="text-sm font-semibold">${escHtml(label)}</span>
+            </div>
+            <span class="shrink-0 text-xs font-medium opacity-90">${escHtml(sub)}</span>
           </div>
-          <span class="shrink-0 text-xs font-medium opacity-90">${escHtml(sub)}</span>
+          ${checkLine}
         </div>`;
     }
 
@@ -374,6 +382,19 @@
       $("dash").classList.add("hidden");
       $("auth-card").classList.remove("hidden");
       hideBanner();
+    }
+
+    async function checkConnections() {
+      const btn = $("check-conn-btn");
+      if (btn) { btn.disabled = true; btn.textContent = "확인 중…"; }
+      try {
+        await api("/api/me/check-connections", { method: "POST" });
+        await refreshMe();
+      } catch (e) {
+        showBanner("error", "연결 확인 실패: " + e.message);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "🔄 연결 확인"; }
+      }
     }
 
     async function refreshMe() {
@@ -397,16 +418,23 @@
             <span class="rounded-full bg-white px-2.5 py-0.5 text-xs font-semibold text-snu ring-1 ring-slate-200">${escHtml(me.plan)}</span>
           </div>
           <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            ${statusChip(me.has_google, "Google", me.has_google ? "연결됨" : "미연결")}
-            ${statusChip(me.has_moodle_calendar_feed, "구독 URL", me.has_moodle_calendar_feed ? "저장됨" : "없음")}
-            ${statusChip(me.has_canvas_token, "Canvas 토큰", me.has_canvas_token ? "저장됨" : "없음")}
+            ${statusChip(me.has_google, "Google", me.has_google ? "연결됨" : "미연결", me.conn_checked_at, me.google_conn_ok)}
+            ${statusChip(me.has_moodle_calendar_feed, "구독 URL", me.has_moodle_calendar_feed ? "저장됨" : "없음", me.conn_checked_at, me.ical_conn_ok)}
+            ${statusChip(me.has_canvas_token, "Canvas 토큰", me.has_canvas_token ? "저장됨" : "없음", me.conn_checked_at, me.canvas_conn_ok)}
+          </div>
+          <div class="mt-2 flex justify-end">
+            <button id="check-conn-btn" onclick="checkConnections()"
+              class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 active:scale-95 transition-all">
+              🔄 연결 확인
+            </button>
           </div>
         `;
 
         const lastAuto = me.last_auto_sync_at;
         const lastStr = lastAuto ? formatKSTShort(lastAuto) : "";
+        const syncMark = me.last_sync_ok === true ? " ✅" : me.last_sync_ok === false ? " ❌" : "";
         $("auto-sync-last").textContent =
-          "마지막 자동 동기화: " + (lastStr || "—");
+          "마지막 자동 동기화: " + (lastStr || "—") + syncMark;
         $("auto-sync-toggle").checked = !!me.auto_sync_enabled;
         const autoNeed = !me.has_google || !me.has_moodle_calendar_feed;
         $("auto-sync-hint").textContent = autoNeed

@@ -129,6 +129,7 @@ def import_from_client(
     gemini_key = settings.anthropic_api_key
     created = 0
     skipped = 0
+    filtered_n = 0
     first_err: str | None = None
     for a in fresh:
         # exam 타입 공지는 Claude로 2차 검증 + 날짜 추출
@@ -140,6 +141,7 @@ def import_from_client(
             )
             if not is_exam:
                 _LOG.info("Claude: exam 아님, 스킵 → %s", a.get("title", "")[:50])
+                filtered_n += 1
                 continue
             # Claude가 추출한 날짜로 deadline 덮어쓰기
             if exam_date:
@@ -159,13 +161,13 @@ def import_from_client(
     db.add(user)
     db.commit()
 
-    print(f"[ETL] sync done: created={created} skipped={skipped} err={first_err}", flush=True)
+    print(f"[ETL] sync done: created={created} skipped={skipped} filtered={filtered_n} err={first_err}", flush=True)
 
     if first_err:
         msg = f"Google Calendar 추가 오류: {first_err}"
     elif skipped == len(fresh):
         msg = "모든 항목이 이미 캘린더에 있습니다. (중복 방지)"
-    elif created < len(fresh) - skipped:
+    elif created < len(fresh) - skipped - filtered_n:
         msg = "일부 항목을 추가하지 못했습니다. Google 재연동을 시도해 주세요."
     else:
         msg = None

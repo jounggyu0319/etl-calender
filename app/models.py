@@ -33,3 +33,10 @@ class User(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+    last_sync_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
+    # 연결 상태 수동 확인 결과
+    conn_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    google_conn_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    ical_conn_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    canvas_conn_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)

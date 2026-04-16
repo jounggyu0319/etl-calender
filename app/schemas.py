@@ -19,6 +19,11 @@ class UserOut(BaseModel):
     has_canvas_token: bool = False
     auto_sync_enabled: bool = False
     last_auto_sync_at: datetime | None = None
+    last_sync_ok: bool | None = None
+    conn_checked_at: datetime | None = None
+    google_conn_ok: bool | None = None
+    ical_conn_ok: bool | None = None
+    canvas_conn_ok: bool | None = None
 
 
 class Token(BaseModel):
