@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends
+import hmac
+
+from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
@@ -6,12 +9,28 @@ from app.db import get_db
 from app.deps import get_current_user
 from app.models import User
 from app.schemas import ClientSyncImport, SyncProgressOut, SyncResult
+from app.services.auto_sync import run_auto_sync_all
 from app.services.client_sync import import_from_client
 from app.services.sync_progress import get_progress
 from app.services.canvas_sync import run_canvas_server_sync
 from app.services.sync_runner import run_etl_continue_sync, run_etl_prepare_browser, run_user_sync
 
 router = APIRouter()
+
+
+@router.post("/auto-trigger")
+def auto_sync_trigger(
+    x_cron_secret: str | None = Header(default=None, alias="X-Cron-Secret"),
+    settings: Settings = Depends(get_settings),
+):
+    """cron-job.org에서 호출 — X-Cron-Secret 헤더로 인증 후 전체 사용자 auto_sync 실행."""
+    expected = settings.cron_secret
+    if not expected or not x_cron_secret:
+        raise HTTPException(status_code=401, detail="Missing secret")
+    if not hmac.compare_digest(x_cron_secret, expected):
+        raise HTTPException(status_code=403, detail="Invalid secret")
+    run_auto_sync_all()
+    return JSONResponse({"status": "triggered"})
 
 
 @router.get("/progress", response_model=SyncProgressOut)
