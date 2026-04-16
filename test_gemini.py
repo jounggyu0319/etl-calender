@@ -56,6 +56,26 @@ cases = [
         "기말고사 고사장이 다음과 같이 배정되었습니다. 학번 앞 두 자리 기준으로 강의실이 나뉩니다.",
         False, "❌ 고사장 배정 (오탐 방지)",
     ),
+    (
+        "Midterm Exam Study Guide",
+        "Please find attached the study guide for the upcoming midterm exam. Review chapters 1-5.",
+        False, "❌ 영어 자료 공지 (오탐 방지)",
+    ),
+    (
+        "Midterm Replacement Assignment",
+        "The midterm exam will be replaced by a take-home essay. Submission deadline: April 22 at 11:59 PM.",
+        False, "❌ 영어 대체 과제 (오탐 방지)",
+    ),
+    (
+        "Final Exam Schedule Notice",
+        "The final exam is scheduled for June 18 (Thursday) at 10:00 AM in Room 301.",
+        True, "✅ 영어 시험 일정",
+    ),
+    (
+        "Midterm Exam Grade Released",
+        "Midterm exam grades have been posted. Please check your score on the portal.",
+        False, "❌ 영어 성적 공지 (오탐 방지)",
+    ),
 ]
 
 print(f"{'제목':<35} {'기대':>4} {'결과':>4} {'일치':>4}  설명")

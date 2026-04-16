@@ -22,14 +22,15 @@ _PROMPT = """다음 대학 강의 공지의 제목과 내용을 보고 판단하
 아래 JSON 형식으로만 답하세요 (다른 텍스트 없이):
 {{"is_exam": true 또는 false, "exam_date": "YYYY-MM-DD" 또는 null}}
 
-판단 기준:
-- is_exam=true: 시험(중간고사/기말고사)이 언제 열리는지 날짜/일정을 알리는 공지
+판단 기준 (한국어·영어 공지 모두 적용):
+- is_exam=true: 시험/exam이 언제(날짜·시간·장소) 열리는지 알리는 공지
+  예) "중간고사는 4월 24일 오후 2시에 진행됩니다" / "The final exam is on June 18 at 10AM"
 - is_exam=false (반드시 제외):
-  * 시험 대체 과제/서평/레포트 제출 공지 ("대체", "서평", "대신" 포함)
-  * 시험 자료/기출/범위/준비물 공지
-  * 성적/결과 공지
+  * 대체 과제/서평/take-home essay/레포트로 시험을 대신하는 공지
+  * 시험 자료/기출/범위/study guide/준비물 공지
+  * 성적/결과/grade released 공지
   * 발표 날짜 배정, 수업 운영 안내
-  * 고사장 배정, 접속 방법 안내
+  * 고사장/exam room 배정, 접속 방법 안내
 - exam_date: is_exam=true일 때 시험 날짜(YYYY-MM-DD). 날짜가 없으면 null. is_exam=false면 null."""
 
 _FALLBACK_KEYWORDS = [
