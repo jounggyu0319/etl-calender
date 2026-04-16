@@ -126,7 +126,7 @@ def import_from_client(
             login_note="클라이언트 동기화",
         )
 
-    gemini_key = settings.gemini_api_key
+    gemini_key = settings.anthropic_api_key
     created = 0
     skipped = 0
     first_err: str | None = None

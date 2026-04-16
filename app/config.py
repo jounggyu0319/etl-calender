@@ -25,7 +25,8 @@ class Settings(BaseSettings):
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
 
-    gemini_api_key: str | None = None
+    gemini_api_key: str | None = None  # 미사용 (하위 호환)
+    anthropic_api_key: str | None = None
     cron_secret: str | None = None
 
     # eTL 동기화 시 Selenium 헤드리스. false면 브라우저 창이 보여 로그인 차단 여부 확인에 유리.
