@@ -1,6 +1,6 @@
 """분류기 테스트 — python test_gemini.py <ANTHROPIC_API_KEY>"""
 import sys
-from app.services.gemini_classifier import is_exam_schedule_announcement
+from app.services.gemini_classifier import classify_exam_announcement
 
 api_key = sys.argv[1] if len(sys.argv) > 1 else None
 
@@ -57,14 +57,15 @@ correct = 0
 for i, (title, body, expected, desc) in enumerate(cases):
     if i > 0:
         time.sleep(5)  # RPM 제한 방지
-    result = is_exam_schedule_announcement(title, body, api_key)
+    result, exam_date = classify_exam_announcement(title, body, api_key)
     match = result == expected
     if match:
         correct += 1
     mark = "✅" if match else "❌"
     exp_str = "YES" if expected else "NO"
     res_str = "YES" if result else "NO"
-    print(f"{title[:33]:<35} {exp_str:>4} {res_str:>4}  {mark}  {desc}")
+    date_str = f" [{exam_date}]" if exam_date else ""
+    print(f"{title[:33]:<35} {exp_str:>4} {res_str:>4}  {mark}  {desc}{date_str}")
 
 print("-" * 80)
 print(f"정확도: {correct}/{len(cases)} ({correct/len(cases)*100:.0f}%)")

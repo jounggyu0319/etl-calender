@@ -23,7 +23,7 @@ from calendar_service import (
     insert_assignment_calendar_if_absent,
     probe_calendar_access,
 )
-from app.services.gemini_classifier import is_exam_schedule_announcement
+from app.services.gemini_classifier import classify_exam_announcement
 
 
 def import_from_client(
@@ -131,15 +131,20 @@ def import_from_client(
     skipped = 0
     first_err: str | None = None
     for a in fresh:
-        # exam 타입 공지는 Gemini로 2차 검증 (자료·발표 공지 오인 방지)
+        # exam 타입 공지는 Claude로 2차 검증 + 날짜 추출
         if a.get("activity_type") == "exam":
-            if not is_exam_schedule_announcement(
+            is_exam, exam_date = classify_exam_announcement(
                 a.get("title", ""),
                 a.get("description_extra", ""),
                 gemini_key,
-            ):
-                _LOG.info("Gemini: exam 아님, 스킵 → %s", a.get("title", "")[:50])
+            )
+            if not is_exam:
+                _LOG.info("Claude: exam 아님, 스킵 → %s", a.get("title", "")[:50])
                 continue
+            # Claude가 추출한 날짜로 deadline 덮어쓰기
+            if exam_date:
+                a = {**a, "deadline": exam_date}
+                _LOG.info("Claude 날짜 적용: %s → %s", a.get("title", "")[:40], exam_date)
 
         inserted, existed, err = insert_assignment_calendar_if_absent(service, a)
         if inserted:
