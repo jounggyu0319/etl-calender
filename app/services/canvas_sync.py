@@ -15,7 +15,7 @@ from app.config import Settings
 from app.models import User
 from app.schemas import SyncResult
 from app.security import decrypt_text, encrypt_text
-from app.services.calendar_service import announcement_title_matches_exam_keywords
+from app.services.calendar_service import announcement_title_matches_exam_keywords, announcement_has_deadline_hint
 from app.services.gemini_classifier import classify_exam_announcement
 from app.services.sync_progress import clear_progress, set_progress
 from app.services.sync_log import log_sync_item, prune_sync_logs
@@ -299,7 +299,7 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
 
         for topic in topics:
             title = str(topic.get("title") or "").strip()
-            if not title or not announcement_title_matches_exam_keywords(title):
+            if not title:
                 continue
             posted = topic.get("posted_at") or topic.get("delayed_post_at")
             if not posted_at_in_active_window(posted if isinstance(posted, str) else None):
@@ -309,40 +309,62 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
                 continue
             tid = int(tid_raw)
 
-            # 공지 본문 추출 (날짜 파싱 + Claude 분류에 필요)
+            # 공지 본문 추출 (pre-filter + Claude 분류에 필요)
             body_html = str(topic.get("message") or "")
             body_text = _canvas_html_to_plain(body_html, limit=7900)
 
-            # Claude 2차 분류 — 대체 과제·자료성 공지 제거 + 날짜·장소 추출
-            is_exam, exam_date, exam_location = classify_exam_announcement(
-                title, body_text, settings.anthropic_api_key
-            )
-            if not is_exam:
-                logger.info("[canvas_sync] Claude: exam 아님, 스킵 → %s", title[:50])
+            # pre-filter: 시험 키워드 OR 마감 힌트 있는 공지만 Claude로 전달
+            is_exam_kw = announcement_title_matches_exam_keywords(title)
+            is_deadline_hint = announcement_has_deadline_hint(title, body_text)
+            if not is_exam_kw and not is_deadline_hint:
                 continue
 
-            # Claude가 추출한 날짜 우선, 없으면 본문 전달 → parse_deadline이 추출
-            deadline_val = exam_date if exam_date else body_text[:2000]
-            logger.info("[canvas_sync] Claude 날짜: %s → %s, 장소: %s", title[:40], exam_date or "(본문 fallback)", exam_location)
+            # Claude 2차 분류 — 시험/마감 판단 + 날짜·시각·장소 추출
+            is_exam, exam_date, exam_location, exam_time, has_deadline, deadline_date = classify_exam_announcement(
+                title, body_text, settings.anthropic_api_key
+            )
 
             eid = f"canvas-{cid}-announce-{tid}"
             html_url = str(topic.get("html_url") or "").strip()
             url = html_url or f"{MYETL_CANVAS_BASE}/courses/{cid}/discussion_topics/{tid}"
-            item: dict = {
-                "id": eid,
-                "title": title[:500],
-                "subject": subj[:256],
-                "url": url,
-                "activity_type": "exam",
-                "color_id": user.exam_color_id or "11",
-                "deadline": deadline_val,
-                "posted_at": str(posted).strip(),
-                "description_extra": (body_text or title)[:7900],
-            }
-            if exam_location:
-                item["exam_location"] = exam_location[:200]
-            fresh.append(item)
-            ann_n += 1
+
+            if is_exam:
+                deadline_val = exam_date if exam_date else body_text[:2000]
+                logger.info("[canvas_sync] 시험 공지 [%s] → date=%s time=%s loc=%s", title[:40], exam_date, exam_time, exam_location)
+                item: dict = {
+                    "id": eid,
+                    "title": title[:500],
+                    "subject": subj[:256],
+                    "url": url,
+                    "activity_type": "exam",
+                    "color_id": user.exam_color_id or "11",
+                    "deadline": deadline_val,
+                    "posted_at": str(posted).strip(),
+                    "description_extra": (body_text or title)[:7900],
+                }
+                if exam_location:
+                    item["exam_location"] = exam_location[:200]
+                if exam_time:
+                    item["exam_time"] = exam_time[:20]
+                fresh.append(item)
+                ann_n += 1
+            elif has_deadline and deadline_date:
+                logger.info("[canvas_sync] 마감 공지 [%s] → deadline_date=%s", title[:40], deadline_date)
+                item = {
+                    "id": f"{eid}-dl",
+                    "title": title[:500],
+                    "subject": subj[:256],
+                    "url": url,
+                    "activity_type": "announcement_deadline",
+                    "color_id": user.assign_color_id or "9",
+                    "deadline": deadline_date,
+                    "posted_at": str(posted).strip(),
+                    "description_extra": (body_text or title)[:7900],
+                }
+                fresh.append(item)
+                ann_n += 1
+            else:
+                logger.info("[canvas_sync] Claude: 시험/마감 아님, 스킵 → %s", title[:50])
 
     set_progress(uid, running=True, phase="캘린더에 반영 중…", course_index=total, course_total=total, course_name="")
 

@@ -13,6 +13,7 @@ __all__ = [
     "format_calendar_event_summary",
     "normalize_course_display_name",
     "announcement_title_matches_exam_keywords",
+    "announcement_has_deadline_hint",
 ]
 
 
@@ -94,6 +95,19 @@ def announcement_title_matches_exam_keywords(title: str) -> bool:
     if re.search(r"\btest\b", tl):
         return True
     return any(x in t for x in ("시험 안내", "시험일정", "시험 일정", "시험일"))
+
+
+def announcement_has_deadline_hint(title: str, body: str) -> bool:
+    """제목 또는 본문에 과제/보고서 마감일 힌트가 있으면 True.
+    exam 키워드 필터를 통과 못 한 공지를 Claude로 보낼지 판단하는 보조 필터."""
+    text = (title + " " + body[:500]).lower()
+    # 마감 키워드
+    if any(k in text for k in ("마감", "제출 기한", "마감일", "마감기한", "due date", "submission deadline")):
+        return True
+    # "N월 N일" 날짜 패턴 + 제출/과제 키워드 동시 존재
+    has_date = bool(re.search(r"\d{1,2}월\s*\d{1,2}일", text))
+    has_submit = any(k in text for k in ("제출", "과제", "보고서", "report", "assignment"))
+    return has_date and has_submit
 
 
 def _is_exam_activity(assignment: dict) -> bool:
@@ -180,9 +194,22 @@ def format_calendar_event_description(assignment: dict) -> str:
         date_str = _format_deadline_kr(deadline)
         if date_str:
             lines.append(f"날짜: {date_str}")
+        exam_time = str(assignment.get("exam_time") or "").strip()
+        if exam_time:
+            lines.append(f"시각: {exam_time}")
         location = str(assignment.get("exam_location") or "").strip()
         if location:
             lines.append(f"장소: {location}")
+        return "\n".join(lines)[:8000]
+
+    if kind == "announcement_deadline":
+        # 공지에서 추출한 과제·보고서 마감일
+        lines = []
+        if title:
+            lines.append(title)
+        date_str = _format_deadline_kr(deadline)
+        if date_str:
+            lines.append(f"마감: {date_str}")
         return "\n".join(lines)[:8000]
 
     # 과제 / 퀴즈

@@ -20,34 +20,50 @@ _PROMPT = """다음 대학 강의 공지의 제목과 내용을 보고 판단하
 내용: {body}
 
 아래 JSON 형식으로만 답하세요 (다른 텍스트 없이):
-{{"is_exam": true 또는 false, "exam_date": "YYYY-MM-DD" 또는 null, "exam_location": "장소" 또는 null}}
+{{"is_exam": true 또는 false, "exam_date": "YYYY-MM-DD" 또는 null, "exam_time": "HH:MM" 또는 null, "exam_location": "장소" 또는 null, "has_deadline": true 또는 false, "deadline_date": "YYYY-MM-DD" 또는 null}}
 
 판단 기준 (한국어·영어 공지 모두 적용):
-- is_exam=true: 시험/exam이 언제(날짜·시간·장소) 열리는지 알리는 공지
+
+[is_exam]
+- true: 시험/exam이 언제(날짜·시간·장소) 열리는지 알리는 공지
   예) "중간고사는 4월 24일 오후 2시에 진행됩니다" / "The final exam is on June 18 at 10AM"
-  ★ 제목이 '강의 운영 안내'처럼 보여도 본문에 시험 날짜·시간·고사장이 구체적으로 명시되어 있으면 is_exam=true
-  ★ "N.M(예)" 또는 "N월 M일" 형태의 날짜 + 시험 시간표가 본문에 있으면 is_exam=true
-- is_exam=false (반드시 제외):
+  ★ 제목이 '강의 운영 안내'처럼 보여도 본문에 시험 날짜·시간·고사장이 구체적으로 명시되어 있으면 true
+  ★ "N.M(예)" 또는 "N월 M일" 형태의 날짜 + 시험 시간표가 본문에 있으면 true
+- false (반드시 제외):
   * 대체 과제/서평/take-home essay/레포트로 시험을 대신하는 공지
   * 시험 자료/기출/범위/study guide/준비물 공지 (시험 자체 일정 없음)
   * 성적/결과/grade released 공지
-  * 발표 날짜 배정, 수업 운영 공지 (시험 날짜 언급 없음)
-- exam_date: is_exam=true일 때 시험 날짜(YYYY-MM-DD, 한국 기준 연도 사용). 날짜가 없으면 null. is_exam=false면 null.
-  ★ "4.24(예)" → 2026-04-24, "4월 24일" → 2026-04-24 형식으로 변환
-- exam_location: is_exam=true일 때 시험 장소(강의실·건물·호실). 없으면 null.
-  ★ 예) "83동 305호", "101동 B02호", "관악캠퍼스 220동" 형식으로 간결하게"""
+
+[exam_date] is_exam=true일 때 시험 날짜(YYYY-MM-DD). 없으면 null.
+  ★ "4.24(예)" → 2026-04-24, "4월 24일" → 2026-04-24
+
+[exam_time] is_exam=true일 때 시험 시작 시각(HH:MM, 24시간). 없으면 null.
+  ★ "오후 3시" → "15:00", "15:05" → "15:05"
+  ★ 여러 시각이 있으면 입실/시작 시각 기준
+
+[exam_location] is_exam=true일 때 시험 장소. 없으면 null.
+  ★ 강의실이 여러 개면 모두 포함. 예) "83동 305호, 604호"
+
+[has_deadline] 시험과 무관하게 과제·보고서·제출물의 마감일이 명시된 공지면 true.
+  ★ is_exam=true여도 has_deadline=true 가능 (시험 + 과제 동시 안내)
+  ★ 시험 범위·자료·성적 공지는 false
+
+[deadline_date] has_deadline=true일 때 마감 날짜(YYYY-MM-DD). 없으면 null."""
 
 _FALLBACK_KEYWORDS = [
     "중간고사", "기말고사", "시험", "과제", "퀴즈",
     "exam", "assignment", "quiz", "deadline", "due", "midterm", "final",
 ]
 
+# 반환 타입: (is_exam, exam_date, exam_location, exam_time, has_deadline, deadline_date)
+ClassifyResult = tuple[bool, str | None, str | None, str | None, bool, str | None]
+
 # 동일 제목 반복 호출 방지 — 프로세스 내 메모리 캐시
-_cache: dict[str, tuple[bool, str | None, str | None]] = {}
+_cache: dict[str, ClassifyResult] = {}
 _CACHE_MAX_SIZE = 2048
 
 
-def _cache_set(cache_key: str, result: tuple[bool, str | None, str | None]) -> None:
+def _cache_set(cache_key: str, result: ClassifyResult) -> None:
     """원인: 무제한 캐시는 장시간 실행 프로세스에서 메모리 누수로 이어질 수 있음."""
     if cache_key in _cache:
         _cache[cache_key] = result
@@ -57,26 +73,27 @@ def _cache_set(cache_key: str, result: tuple[bool, str | None, str | None]) -> N
     _cache[cache_key] = result
 
 
-def _keyword_fallback(title: str, body: str) -> tuple[bool, str | None, str | None]:
+def _keyword_fallback(title: str, body: str) -> ClassifyResult:
     text = (title + " " + body).lower()
-    return any(kw in text for kw in _FALLBACK_KEYWORDS), None, None
+    is_exam = any(kw in text for kw in _FALLBACK_KEYWORDS)
+    return is_exam, None, None, None, False, None
 
 
 def classify_exam_announcement(
     title: str,
     body: str,
     api_key: str | None,
-) -> tuple[bool, str | None, str | None]:
+) -> ClassifyResult:
     """
-    Claude Haiku로 공지가 시험 일정 공지인지 판단하고 날짜·장소 추출.
-    반환: (is_exam, exam_date_iso_or_None, exam_location_or_None)
+    Claude Haiku로 공지가 시험/마감 공지인지 판단하고 날짜·시각·장소 추출.
+    반환: (is_exam, exam_date, exam_location, exam_time, has_deadline, deadline_date)
     - api_key 없으면 키워드 fallback
     - API 오류 시 키워드 fallback
     """
     if not api_key:
         return _keyword_fallback(title, body)
 
-    cache_key = f"v3|{title[:100]}|{body[:400]}"
+    cache_key = f"v4|{title[:100]}|{body[:400]}"
     if cache_key in _cache:
         _LOG.info("분류기 캐시 히트 → %s", title[:40])
         return _cache[cache_key]
@@ -87,7 +104,7 @@ def classify_exam_announcement(
     )
     payload = json.dumps({
         "model": _MODEL,
-        "max_tokens": 100,
+        "max_tokens": 150,
         "messages": [{"role": "user", "content": prompt}],
     }).encode("utf-8")
 
@@ -116,19 +133,25 @@ def classify_exam_announcement(
                 raw = raw[4:]
             raw = raw.strip()
         parsed = json.loads(raw)
+
+        def _str_or_none(val: object) -> str | None:
+            return str(val).strip() if val and isinstance(val, str) else None
+
         is_exam = bool(parsed.get("is_exam", False))
-        exam_date = parsed.get("exam_date") or None
-        if exam_date and not isinstance(exam_date, str):
-            exam_date = None
-        exam_location = parsed.get("exam_location") or None
-        if exam_location and not isinstance(exam_location, str):
-            exam_location = None
-        result = (is_exam, exam_date, exam_location)
-        _LOG.info("Claude 분류 [%s] → is_exam=%s date=%s location=%s", title[:40], is_exam, exam_date, exam_location)
+        exam_date = _str_or_none(parsed.get("exam_date"))
+        exam_location = _str_or_none(parsed.get("exam_location"))
+        exam_time = _str_or_none(parsed.get("exam_time"))
+        has_deadline = bool(parsed.get("has_deadline", False))
+        deadline_date = _str_or_none(parsed.get("deadline_date"))
+
+        result: ClassifyResult = (is_exam, exam_date, exam_location, exam_time, has_deadline, deadline_date)
+        _LOG.info(
+            "Claude 분류 [%s] → is_exam=%s date=%s time=%s loc=%s has_deadline=%s dl_date=%s",
+            title[:40], is_exam, exam_date, exam_time, exam_location, has_deadline, deadline_date,
+        )
         _cache_set(cache_key, result)
         return result
     except (json.JSONDecodeError, KeyError, TypeError):
-        # JSON 파싱 실패 시 fallback
         _LOG.warning("Claude 응답 파싱 실패 → fallback: %s", title[:40])
         return _keyword_fallback(title, body)
     except urllib.error.HTTPError as exc:
@@ -150,5 +173,5 @@ def is_exam_schedule_announcement(
     body: str,
     api_key: str | None,
 ) -> bool:
-    is_exam, _, _loc = classify_exam_announcement(title, body, api_key)
+    is_exam, *_ = classify_exam_announcement(title, body, api_key)
     return is_exam
