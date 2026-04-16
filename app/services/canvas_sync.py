@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from datetime import datetime
 from typing import Any
 
 import requests
@@ -17,7 +18,12 @@ from app.security import decrypt_text, encrypt_text
 from app.services.calendar_service import announcement_title_matches_exam_keywords
 from app.services.gemini_classifier import classify_exam_announcement
 from app.services.sync_progress import clear_progress, set_progress
-from app.snu_academic_calendar import due_at_in_active_window, posted_at_in_active_window
+from app.snu_academic_calendar import (
+    SEOUL,
+    due_at_in_active_window,
+    pick_due_date_filter_window,
+    posted_at_in_active_window,
+)
 from calendar_service import ensure_calendar_service, insert_assignment_calendar_if_absent
 
 logger = logging.getLogger(__name__)
@@ -73,6 +79,37 @@ def _fetch_all_pages(first_url: str, headers: dict[str, str], timeout: int = 45)
         rows.extend(chunk)
         url = _parse_next_link(r.headers.get("Link"))
     return rows
+
+
+def _is_course_in_current_semester(c: dict[str, Any]) -> bool:
+    """확장 프로그램 isCourseInCurrentSemester()와 동일 로직.
+
+    1순위: term.start_at / end_at 으로 현재 학기 창과 겹치는지 확인
+    2순위: 강의명에 "YYYY-N" 코드 포함 여부
+    """
+    win_start, win_end = pick_due_date_filter_window()
+    term = c.get("term") or {}
+    ts_raw = term.get("start_at")
+    te_raw = term.get("end_at")
+    if ts_raw and te_raw:
+        try:
+            ts = datetime.fromisoformat(str(ts_raw).replace("Z", "+00:00")).astimezone(SEOUL)
+            te = datetime.fromisoformat(str(te_raw).replace("Z", "+00:00")).astimezone(SEOUL)
+            return ts <= win_end and te >= win_start
+        except ValueError:
+            pass
+    # fallback: "YYYY-N" 코드 포함 여부
+    now = win_start  # 현재 학기 시작 기준으로 학기 코드 계산
+    m = now.month
+    y = now.year
+    if 3 <= m <= 8:
+        sem_code = f"{y}-1"
+    elif m >= 9:
+        sem_code = f"{y}-2"
+    else:
+        sem_code = f"{y - 1}-2"
+    name = str(c.get("name") or c.get("course_code") or "").strip()
+    return name.startswith(sem_code) or f"[{sem_code}" in name
 
 
 def _course_label(c: dict[str, Any]) -> str:
@@ -142,7 +179,7 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
     }
     try:
         courses = _fetch_all_pages(
-            f"{MYETL_CANVAS_BASE}/api/v1/courses?enrollment_state=active&per_page=100",
+            f"{MYETL_CANVAS_BASE}/api/v1/courses?enrollment_state=active&include[]=term&per_page=100",
             headers,
         )
     except requests.RequestException as e:
@@ -163,7 +200,11 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
 
     fresh: list[dict[str, Any]] = []
     assign_n = quiz_n = ann_n = 0
-    course_list = courses[:60]
+
+    # 현재 학기 강의만 필터링 (확장 프로그램 isCourseInCurrentSemester와 동일)
+    semester_courses = [c for c in courses if _is_course_in_current_semester(c)]
+    course_list = (semester_courses if semester_courses else courses)[:60]
+    logger.info("[canvas_sync] 전체 강의 %d개 → 학기 필터 후 %d개", len(courses), len(course_list))
     total = len(course_list)
 
     for idx, c in enumerate(course_list, 1):
