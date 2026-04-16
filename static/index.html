@@ -351,7 +351,20 @@
       let data = null;
       try { data = text ? JSON.parse(text) : null; } catch { data = { detail: text }; }
       if (!res.ok) {
-        const msg = (data && (data.detail || data.message)) || res.statusText;
+        const normalizeValidationError = (detail) => {
+          if (!Array.isArray(detail)) return null;
+          const lines = detail
+            .map((item) => {
+              const loc = Array.isArray(item?.loc) ? item.loc.join(".") : "";
+              if (loc.endsWith("email")) return "이메일 형식이 올바르지 않습니다.";
+              if (loc.endsWith("password")) return "비밀번호는 8자 이상이어야 합니다.";
+              return String(item?.msg || "").trim();
+            })
+            .filter(Boolean);
+          return lines.length ? lines.join(" ") : null;
+        };
+        const validationMsg = normalizeValidationError(data && data.detail);
+        const msg = validationMsg || (data && (data.detail || data.message)) || res.statusText;
         throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
       }
       return data;
@@ -658,13 +671,23 @@
 
     $("btn-register").onclick = async () => {
       hideBanner();
+      const email = $("email").value.trim();
+      const password = $("password").value;
+      if (!email) {
+        showBanner("err", "이메일을 입력해 주세요.");
+        return;
+      }
+      if (!password) {
+        showBanner("err", "비밀번호를 입력해 주세요.");
+        return;
+      }
       try {
         const data = await api("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            email: $("email").value.trim(),
-            password: $("password").value,
+            email,
+            password,
           }),
         });
         localStorage.setItem(tokenKey, data.access_token);
