@@ -163,8 +163,8 @@ def format_calendar_event_description(assignment: dict) -> str:
     title = str(assignment.get("title") or "").strip()
     deadline = str(assignment.get("deadline") or "").strip()
 
-    if _is_exam_activity(assignment):
-        # 시험 종류
+    if kind in ("exam", "announcement_midterm", "announcement_final"):
+        # 시험 종류 (activity_type으로만 판단 — 제목 키워드 미사용)
         if kind == "announcement_midterm":
             exam_label = "중간고사"
         elif kind == "announcement_final":
