@@ -1,14 +1,15 @@
 import hmac
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import JSONResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.db import get_db
 from app.deps import get_current_user
-from app.models import User
-from app.schemas import ClientSyncImport, SyncProgressOut, SyncResult
+from app.models import SyncLog, User
+from app.schemas import ClientSyncImport, SyncLogOut, SyncProgressOut, SyncResult
 from app.services.auto_sync import run_auto_sync_all
 from app.services.client_sync import import_from_client
 from app.services.sync_progress import get_progress
@@ -88,6 +89,22 @@ def sync_canvas_server(
     """저장된 Canvas API 토큰으로 myetl REST에서 과제·퀴즈를 가져와 Google Calendar에 반영합니다."""
     print("=== 동기화 API 호출됨 === POST /api/sync/canvas", flush=True)
     return run_canvas_server_sync(db, user, settings)
+
+
+@router.get("/history", response_model=list[SyncLogOut])
+def sync_history(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    limit: int = Query(default=100, le=200),
+) -> list[SyncLog]:
+    """최근 동기화에서 Google Calendar에 추가된 항목 목록."""
+    rows = db.scalars(
+        select(SyncLog)
+        .where(SyncLog.user_id == user.id)
+        .order_by(SyncLog.synced_at.desc())
+        .limit(limit)
+    ).all()
+    return list(rows)
 
 
 @router.post("/from-client", response_model=SyncResult)

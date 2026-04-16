@@ -18,6 +18,7 @@ from app.security import decrypt_text, encrypt_text
 from app.services.calendar_service import announcement_title_matches_exam_keywords
 from app.services.gemini_classifier import classify_exam_announcement
 from app.services.sync_progress import clear_progress, set_progress
+from app.services.sync_log import log_sync_item
 from app.snu_academic_calendar import (
     SEOUL,
     due_at_in_active_window,
@@ -358,6 +359,7 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
         inserted, _, _ = insert_assignment_calendar_if_absent(service, it)
         if inserted:
             created += 1
+            log_sync_item(db, uid, it)
 
     if fresh_google_json != google_json:
         user.google_creds_enc = encrypt_text(fresh_google_json, settings)

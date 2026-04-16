@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -40,3 +40,20 @@ class User(Base):
     google_conn_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     ical_conn_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     canvas_conn_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
+
+class SyncLog(Base):
+    """Google Calendar에 실제 추가된 항목 로그 (사용자별, 최근 200건 유지)."""
+
+    __tablename__ = "sync_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    synced_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+    event_title: Mapped[str] = mapped_column(String(1024))
+    subject: Mapped[str] = mapped_column(String(256), default="")
+    activity_type: Mapped[str] = mapped_column(String(64), default="assign")
+    deadline_date: Mapped[str | None] = mapped_column(String(64), nullable=True)

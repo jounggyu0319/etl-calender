@@ -33,6 +33,7 @@ def init_db() -> None:
     from app import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+
     # 기존 DB에 새 컬럼 추가 (create_all만으로는 ALTER 안 됨)
     insp = inspect(engine)
     if not insp.has_table("users"):

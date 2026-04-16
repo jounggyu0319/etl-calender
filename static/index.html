@@ -137,6 +137,17 @@
         <p id="sync-out" class="mt-3 whitespace-pre-wrap rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm leading-relaxed text-slate-700"></p>
       </div>
 
+      <!-- 동기화 히스토리 -->
+      <div id="history-card" class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card sm:p-6" style="display:none;">
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900">추가된 일정</h2>
+            <p class="mt-0.5 text-sm text-slate-500">캘린더에 추가된 항목이 날짜별로 표시됩니다.</p>
+          </div>
+        </div>
+        <div id="history-list" class="space-y-4 text-sm"></div>
+      </div>
+
       <!-- 설정 -->
       <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card sm:p-6">
         <h2 class="mb-4 text-lg font-bold text-slate-900">연결 설정</h2>
@@ -330,27 +341,58 @@
     }
 
     function renderSyncHistory() {
-      const el = $("sync-history");
-      if (!el) return;
-      const h = readSyncHistory();
-      if (!h) {
-        el.classList.add("hidden");
-        el.innerHTML = "";
-        return;
+      // 이전 localStorage 기반 히스토리 — 하위 호환용으로 남겨둠 (sync-out 영역에 표시 안 함)
+    }
+
+    const _activityLabel = { assign: "과제", quiz: "퀴즈", exam: "시험", announcement_midterm: "시험", announcement_final: "시험" };
+
+    function _dateGroupKey(isoUtc) {
+      try {
+        return new Date(isoUtc).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "long", day: "numeric" });
+      } catch { return isoUtc.slice(0, 10); }
+    }
+
+    async function loadSyncHistory() {
+      const card = $("history-card");
+      const list = $("history-list");
+      if (!card || !list) return;
+      try {
+        const rows = await api("/api/sync/history?limit=100");
+        if (!rows || rows.length === 0) {
+          card.style.display = "none";
+          return;
+        }
+        card.style.display = "block";
+        // 날짜별 그룹화 (synced_at 기준, KST)
+        const groups = {};
+        for (const r of rows) {
+          const key = _dateGroupKey(r.synced_at);
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(r);
+        }
+        let html = "";
+        for (const [dateLabel, items] of Object.entries(groups)) {
+          html += `<div>
+            <p class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">${escHtml(dateLabel)} 추가됨</p>
+            <ul class="space-y-1.5">`;
+          for (const it of items) {
+            const typeLabel = _activityLabel[it.activity_type] || it.activity_type;
+            const badge = it.activity_type === "exam" || it.activity_type.startsWith("announcement")
+              ? `<span class="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600 ring-1 ring-red-200">${escHtml(typeLabel)}</span>`
+              : `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">${escHtml(typeLabel)}</span>`;
+            const dl = it.deadline_date ? `<span class="ml-auto shrink-0 text-[11px] text-slate-400">마감 ${escHtml(it.deadline_date)}</span>` : "";
+            html += `<li class="flex flex-wrap items-start gap-1.5 rounded-lg bg-slate-50 px-3 py-2">
+              ${badge}
+              <span class="min-w-0 flex-1 break-words text-sm text-slate-800">${escHtml(it.event_title)}</span>
+              ${dl}
+            </li>`;
+          }
+          html += `</ul></div>`;
+        }
+        list.innerHTML = html;
+      } catch {
+        card.style.display = "none";
       }
-      const when = formatKSTShort(h.at);
-      const added = Number.isFinite(h.added) ? h.added : 0;
-      el.classList.remove("hidden");
-      el.innerHTML = `
-        <div class="flex items-start justify-between gap-3">
-          <div class="min-w-0">
-            <p class="text-xs font-semibold text-slate-500">동기화 히스토리</p>
-            <p class="mt-1 text-sm font-semibold text-slate-900">마지막 동기화: ${escHtml(when || h.at)}</p>
-            <p class="mt-1 text-sm text-slate-600">이번 동기화에서 <span class="font-semibold text-snu">${added}</span>건 추가</p>
-          </div>
-          <span class="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">최근</span>
-        </div>
-      `;
     }
 
     function statusChip(ok, label, sub, checkedAt, connOk) {
@@ -411,6 +453,7 @@
         $("dash").style.display = "block";
         $("dash").classList.remove("hidden");
         renderSyncHistory();
+        loadSyncHistory();
 
         $("me-kv").innerHTML = `
           <div class="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
@@ -661,6 +704,7 @@
         writeSyncHistory(totalAdded);
         renderSyncHistory();
         await refreshMe();
+        await loadSyncHistory();
       } catch (e) {
         $("sync-out").textContent = e.message || "동기화에 실패했습니다.";
       }
@@ -703,6 +747,7 @@
         writeSyncHistory(totalAdded);
         renderSyncHistory();
         await refreshMe();
+        await loadSyncHistory();
       } catch (e) {
         stopPolling();
         $("sync-out").textContent = e.message || "실패했습니다.";

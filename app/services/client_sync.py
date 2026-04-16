@@ -24,6 +24,7 @@ from calendar_service import (
     probe_calendar_access,
 )
 from app.services.gemini_classifier import classify_exam_announcement
+from app.services.sync_log import log_sync_item
 
 
 def import_from_client(
@@ -151,6 +152,7 @@ def import_from_client(
         inserted, existed, err = insert_assignment_calendar_if_absent(service, a)
         if inserted:
             created += 1
+            log_sync_item(db, user.id, a)
         elif existed:
             skipped += 1
         elif err and first_err is None:
