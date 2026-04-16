@@ -15,6 +15,7 @@ class UserOut(BaseModel):
     email: EmailStr
     plan: str
     has_moodle_calendar_feed: bool
+    moodle_calendar_feed_url: str | None = None
     has_google: bool
     has_canvas_token: bool = False
     auto_sync_enabled: bool = False

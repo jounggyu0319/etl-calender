@@ -21,9 +21,17 @@ from app.services.moodle_ics import validate_moodle_calendar_feed_url
 router = APIRouter()
 
 
+def _out(user: User, settings: Settings) -> UserOut:
+    feed_url = (decrypt_text(user.moodle_calendar_feed_enc, settings) or None) if user.moodle_calendar_feed_enc else None
+    return user_to_out(user, moodle_feed_url=feed_url)
+
+
 @router.get("/", response_model=UserOut)
-def read_me(user: User = Depends(get_current_user)) -> UserOut:
-    return user_to_out(user)
+def read_me(
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> UserOut:
+    return _out(user, settings)
 
 
 @router.patch("/canvas-token", response_model=UserOut)
@@ -41,7 +49,7 @@ def update_canvas_token(
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user_to_out(user)
+    return _out(user, settings)
 
 
 @router.patch("/auto-sync", response_model=UserOut)
@@ -49,12 +57,13 @@ def update_auto_sync(
     body: AutoSyncUpdate,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> UserOut:
     user.auto_sync_enabled = bool(body.enabled)
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user_to_out(user)
+    return _out(user, settings)
 
 
 @router.post("/check-connections", response_model=UserOut)

@@ -430,6 +430,11 @@
           </div>
         `;
 
+        // 저장된 구독 URL이 있으면 textarea에 채워서 사용자가 확인할 수 있게
+        if (me.moodle_calendar_feed_url) {
+          $("moodle-feed-url").value = me.moodle_calendar_feed_url;
+        }
+
         const lastAuto = me.last_auto_sync_at;
         const lastStr = lastAuto ? formatKSTShort(lastAuto) : "";
         const syncMark = me.last_sync_ok === true ? " ✅" : me.last_sync_ok === false ? " ❌" : "";
