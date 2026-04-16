@@ -143,6 +143,26 @@ def parse_deadline(deadline_text: str | None) -> dict | None:
         if 1 <= mo <= 12 and 1 <= d <= 31:
             return {"date": f"{y:04d}-{mo:02d}-{d:02d}"}
 
+    # "N.N" 또는 "N.NN" 점 구분자 형식 — "4.24(예)", "4.24." 등 — 복수 날짜 시 미래 우선
+    dot_candidates = list(re.finditer(r"(?<!\d)(\d{1,2})\.(\d{1,2})(?!\d)", text))
+    if dot_candidates:
+        y = datetime.now(SEOUL).year
+        today = datetime.now(SEOUL).date()
+        from datetime import date as _date
+        valid = []
+        for m in dot_candidates:
+            mo, d = int(m.group(1)), int(m.group(2))
+            if 1 <= mo <= 12 and 1 <= d <= 31:
+                try:
+                    valid.append((_date(y, mo, d), mo, d))
+                except ValueError:
+                    continue
+        if valid:
+            future_only = [(c, mo, d) for c, mo, d in valid if c >= today]
+            chosen = min(future_only, key=lambda x: x[0]) if future_only else valid[0]
+            _, mo, d = chosen
+            return {"date": f"{y:04d}-{mo:02d}-{d:02d}"}
+
     # Korean: "N월 N일" (연도 없음 → 올해) — 복수 날짜 시 미래 날짜 우선
     ko_md_candidates = list(re.finditer(r"(?<!\d)(\d{1,2})월\s*(\d{1,2})일", text))
     if ko_md_candidates:

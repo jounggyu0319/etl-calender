@@ -308,13 +308,17 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
             body_html = str(topic.get("message") or "")
             body_text = _canvas_html_to_plain(body_html, limit=7900)
 
-            # Claude 2차 분류 — 대체 과제·자료성 공지 제거
-            is_exam, _ = classify_exam_announcement(
+            # Claude 2차 분류 — 대체 과제·자료성 공지 제거 + 날짜 추출
+            is_exam, exam_date = classify_exam_announcement(
                 title, body_text, settings.anthropic_api_key
             )
             if not is_exam:
                 logger.info("[canvas_sync] Claude: exam 아님, 스킵 → %s", title[:50])
                 continue
+
+            # Claude가 추출한 날짜 우선, 없으면 본문 전달 → parse_deadline이 추출
+            deadline_val = exam_date if exam_date else body_text[:2000]
+            logger.info("[canvas_sync] Claude 날짜: %s → %s", title[:40], exam_date or "(본문 fallback)")
 
             eid = f"canvas-{cid}-announce-{tid}"
             html_url = str(topic.get("html_url") or "").strip()
@@ -326,7 +330,7 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
                     "subject": subj[:256],
                     "url": url,
                     "activity_type": "exam",
-                    "deadline": body_text[:2000],   # parse_deadline이 날짜 추출
+                    "deadline": deadline_val,
                     "posted_at": str(posted).strip(),
                     "description_extra": (body_text or title)[:7900],
                 }
@@ -355,11 +359,20 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
 
     service, fresh_google_json = ensure_calendar_service(google_json)
     created = 0
+    skipped = 0
+    erred = 0
+    first_err: str | None = None
     for it in fresh:
-        inserted, _, _ = insert_assignment_calendar_if_absent(service, it)
+        inserted, existed, err = insert_assignment_calendar_if_absent(service, it)
         if inserted:
             created += 1
             log_sync_item(db, uid, it)
+        elif existed:
+            skipped += 1
+        elif err:
+            erred += 1
+            if first_err is None:
+                first_err = err
 
     if fresh_google_json != google_json:
         user.google_creds_enc = encrypt_text(fresh_google_json, settings)
@@ -367,16 +380,19 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
     db.commit()
     clear_progress(uid)
 
-    partial = created < len(fresh)
+    if first_err:
+        msg = f"Google Calendar 추가 오류: {first_err}"
+    elif skipped == len(fresh):
+        msg = None  # 전부 이미 존재 → 정상
+    elif erred > 0:
+        msg = "일부 일정을 캘린더에 추가하지 못했습니다. 토큰·쿼터·권한을 확인해 주세요."
+    else:
+        msg = None
     return SyncResult(
         new_assignments=len(fresh),
         calendar_events_created=created,
         ics_events_created=0,
-        message=(
-            "일부 일정만 캘린더에 추가되었습니다. 토큰·쿼터·권한을 확인해 주세요."
-            if partial
-            else None
-        ),
+        message=msg,
         login_ok=True,
         courses_found=len(courses),
         assign_links_found=assign_n,
