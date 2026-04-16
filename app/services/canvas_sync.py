@@ -250,6 +250,7 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
                     "url": str(a.get("html_url") or "").strip()
                     or f"{MYETL_CANVAS_BASE}/courses/{cid}/assignments/{aid}",
                     "activity_type": "assign",
+                    "color_id": user.assign_color_id or "9",
                     "deadline": str(due).strip(),
                     **({"description_extra": desc_plain} if desc_plain else {}),
                 }
@@ -277,6 +278,7 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
                     "url": str(q.get("html_url") or "").strip()
                     or f"{MYETL_CANVAS_BASE}/courses/{cid}/quizzes/{qid}",
                     "activity_type": "quiz",
+                    "color_id": user.assign_color_id or "9",
                     "deadline": str(due).strip(),
                     **({"description_extra": qdesc_plain} if qdesc_plain else {}),
                 }
@@ -329,6 +331,7 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
                 "subject": subj[:256],
                 "url": url,
                 "activity_type": "exam",
+                "color_id": user.exam_color_id or "11",
                 "deadline": deadline_val,
                 "posted_at": str(posted).strip(),
                 "description_extra": (body_text or title)[:7900],
@@ -378,7 +381,26 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
     if fresh_google_json != google_json:
         user.google_creds_enc = encrypt_text(fresh_google_json, settings)
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except Exception as exc:
+        # 원인: 로그 flush 이후 commit 실패 시 세션 rollback 없이 남아 후속 트랜잭션을 오염시킴.
+        db.rollback()
+        clear_progress(uid)
+        return SyncResult(
+            new_assignments=len(fresh),
+            calendar_events_created=created,
+            ics_events_created=0,
+            message=f"동기화 결과 저장(DB commit)에 실패했습니다: {exc}",
+            login_ok=True,
+            courses_found=len(courses),
+            assign_links_found=assign_n,
+            quiz_links_found=quiz_n,
+            announcement_keyword_hits=ann_n,
+            login_note="Canvas API 서버 동기화",
+            course_list_scanned=True,
+            canvas_server_context=True,
+        )
     clear_progress(uid)
 
     if first_err:
@@ -389,6 +411,7 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
         msg = "일부 일정을 캘린더에 추가하지 못했습니다. 토큰·쿼터·권한을 확인해 주세요."
     else:
         msg = None
+
     return SyncResult(
         new_assignments=len(fresh),
         calendar_events_created=created,

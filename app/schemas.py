@@ -15,16 +15,12 @@ class UserOut(BaseModel):
     email: EmailStr
     plan: str
     has_moodle_calendar_feed: bool
-    moodle_calendar_feed_url: str | None = None
     has_google: bool
     has_canvas_token: bool = False
+    assign_color_id: str = "9"
+    exam_color_id: str = "11"
     auto_sync_enabled: bool = False
     last_auto_sync_at: datetime | None = None
-    last_sync_ok: bool | None = None
-    conn_checked_at: datetime | None = None
-    google_conn_ok: bool | None = None
-    ical_conn_ok: bool | None = None
-    canvas_conn_ok: bool | None = None
 
 
 class Token(BaseModel):
@@ -42,6 +38,11 @@ class AutoSyncUpdate(BaseModel):
     """자동 동기화 on/off."""
 
     enabled: bool
+
+
+class ColorSettingsUpdate(BaseModel):
+    assign_color_id: str = Field(default="9", pattern="^([1-9]|1[01])$")
+    exam_color_id: str = Field(default="11", pattern="^([1-9]|1[01])$")
 
 
 class MoodleCalendarFeedUpdate(BaseModel):
@@ -102,17 +103,6 @@ class SyncResult(BaseModel):
     ical_ui_context: bool = False
     # True: POST /api/sync/canvas — 서버 Canvas API 동기화
     canvas_server_context: bool = False
-
-
-class SyncLogOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    synced_at: datetime
-    event_title: str
-    subject: str
-    activity_type: str
-    deadline_date: str | None = None
 
 
 class BillingStatus(BaseModel):

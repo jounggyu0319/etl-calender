@@ -68,6 +68,10 @@ def import_from_client(
         xtra = (d.get("description_extra") or "").strip()
         if xtra:
             row["description_extra"] = xtra
+        if row["activity_type"] == "exam":
+            row["color_id"] = user.exam_color_id or "11"
+        else:
+            row["color_id"] = user.assign_color_id or "9"
         fresh.append(row)
 
     assign_n = sum(1 for x in fresh if x.get("activity_type") == "assign")
@@ -165,7 +169,23 @@ def import_from_client(
     if fresh_google_json != google_json:
         user.google_creds_enc = encrypt_text(fresh_google_json, settings)
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except Exception as exc:
+        # 원인: commit 실패 시 세션이 깨진 채 남아 이후 요청까지 전파될 수 있음.
+        db.rollback()
+        return SyncResult(
+            new_assignments=len(fresh),
+            calendar_events_created=created,
+            ics_events_created=0,
+            message=f"동기화 결과 저장(DB commit)에 실패했습니다: {exc}",
+            login_ok=True,
+            courses_found=len(course_subjects),
+            assign_links_found=assign_n,
+            quiz_links_found=quiz_n,
+            announcement_keyword_hits=ann_n,
+            login_note="클라이언트 동기화",
+        )
 
     print(f"[ETL] sync done: created={created} skipped={skipped} filtered={filtered_n} err={first_err}", flush=True)
 

@@ -145,7 +145,14 @@ def parse_deadline(deadline_text: str | None) -> dict | None:
 
     # "N.N" 또는 "N.NN" 점 구분자 형식 — "4.24(예)", "4.24." 등 — 복수 날짜 시 미래 우선
     dot_candidates = list(re.finditer(r"(?<!\d)(\d{1,2})\.(\d{1,2})(?!\d)", text))
-    if dot_candidates:
+    has_dot_date_context = bool(
+        re.search(
+            r"(시험|고사|마감|제출|일정|날짜|공지|due|deadline|exam|quiz|\(\s*예\s*\))",
+            text,
+            re.I,
+        )
+    )
+    if dot_candidates and has_dot_date_context:
         y = datetime.now(SEOUL).year
         today = datetime.now(SEOUL).date()
         from datetime import date as _date
@@ -302,7 +309,7 @@ def _build_calendar_event(assignment: dict, etl_id: str) -> dict:
                 {"method": "popup", "minutes": 60},
             ],
         },
-        "colorId": "11",
+        "colorId": str(assignment.get("color_id") or "11"),
         "extendedProperties": {"private": {PRIVATE_ETL_KEY: etl_id[:1024]}},
     }
 

@@ -33,7 +33,6 @@ def init_db() -> None:
     from app import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
-
     # 기존 DB에 새 컬럼 추가 (create_all만으로는 ALTER 안 됨)
     insp = inspect(engine)
     if not insp.has_table("users"):
@@ -60,20 +59,10 @@ def init_db() -> None:
         )
     if "canvas_token_enc" not in cols:
         stmts.append("ALTER TABLE users ADD COLUMN canvas_token_enc TEXT")
-    if "last_sync_ok" not in cols:
-        stmts.append("ALTER TABLE users ADD COLUMN last_sync_ok BOOLEAN")
-    if "conn_checked_at" not in cols:
-        stmts.append(
-            "ALTER TABLE users ADD COLUMN conn_checked_at DATETIME"
-            if _is_sqlite
-            else "ALTER TABLE users ADD COLUMN conn_checked_at TIMESTAMP WITH TIME ZONE"
-        )
-    if "google_conn_ok" not in cols:
-        stmts.append("ALTER TABLE users ADD COLUMN google_conn_ok BOOLEAN")
-    if "ical_conn_ok" not in cols:
-        stmts.append("ALTER TABLE users ADD COLUMN ical_conn_ok BOOLEAN")
-    if "canvas_conn_ok" not in cols:
-        stmts.append("ALTER TABLE users ADD COLUMN canvas_conn_ok BOOLEAN")
+    if "assign_color_id" not in cols:
+        stmts.append("ALTER TABLE users ADD COLUMN assign_color_id VARCHAR(4) DEFAULT '9'")
+    if "exam_color_id" not in cols:
+        stmts.append("ALTER TABLE users ADD COLUMN exam_color_id VARCHAR(4) DEFAULT '11'")
     for sql in stmts:
         with engine.begin() as conn:
             conn.execute(text(sql))
