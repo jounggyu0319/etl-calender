@@ -33,7 +33,9 @@ def normalize_course_display_name(subject: str) -> str:
 
 
 def classify_exam_kind_from_title(title: str) -> str | None:
-    """과제/공지 제목에서 시험 유형: 'midterm' | 'final' | 'general' | None (우선순위: 중간→기말→일반)."""
+    """과제/공지 제목에서 시험 유형: 'midterm' | 'final' | 'general' | None.
+    확장 프로그램 examKindFromTitle과 동일 기준 — "중간"/"기말" 단독 매칭 제거.
+    """
     if not (title or "").strip():
         return None
     t = title.lower()
@@ -42,15 +44,13 @@ def classify_exam_kind_from_title(title: str) -> str | None:
         return "midterm"
     if "midterm" in t or "mid-term" in t or "mid term" in t:
         return "midterm"
-    if "중간" in orig:
+    if "중간 시험" in orig or "중간시험" in orig or "중간 평가" in orig:
         return "midterm"
     if "기말고사" in orig:
         return "final"
-    if "final exam" in t:
+    if "final exam" in t or "final test" in t or "final examination" in t:
         return "final"
-    if "기말" in orig:
-        return "final"
-    if re.search(r"\bfinal\b", t):
+    if "기말 시험" in orig or "기말시험" in orig or "기말 평가" in orig:
         return "final"
     if "시험" in orig:
         return "general"
@@ -62,18 +62,31 @@ def classify_exam_kind_from_title(title: str) -> str | None:
 
 
 def announcement_title_matches_exam_keywords(title: str) -> bool:
-    """Canvas 공지 수집용: 시험 관련 키워드가 제목에 있으면 True."""
-    if not (title or "").strip():
+    """Canvas 공지 수집용 — 확장 프로그램 announcementMatchesExamTitle과 동일 기준."""
+    t = (title or "").strip()
+    if not t:
         return False
-    if classify_exam_kind_from_title(title):
+    tl = t.lower()
+
+    # 자료성·결과성 공지 제외 키워드
+    _EXCLUDE = [
+        "대비용", "대비 문제", "기출문제", "기출 문제", "연습문제",
+        "올려드렸", "자료 올",
+        "성적", "결과", "레포트", "프로젝트", "project", "report",
+        "발표 날짜", "날짜 배정", "발표일 배정", "수업 운영",
+    ]
+    has_exam_kw = bool(re.search(r"중간고사|기말고사|midterm|final exam", tl))
+    excluded = any(k.lower() in tl for k in _EXCLUDE)
+    # 시험 키워드 없이 강의 운영 안내만 → 제외
+    is_ops_only = not has_exam_kw and bool(re.search(r"강의 운영|수업 운영", t))
+    if excluded or is_ops_only:
+        return False
+
+    if classify_exam_kind_from_title(t):
         return True
-    t = (title or "").lower()
-    if re.search(r"\btest\b", t):
+    if re.search(r"\btest\b", tl):
         return True
-    return any(
-        x in title
-        for x in ("시험 안내", "시험일정", "시험 일정", "시험일")
-    )
+    return any(x in t for x in ("시험 안내", "시험일정", "시험 일정", "시험일"))
 
 
 def _is_exam_activity(assignment: dict) -> bool:
@@ -107,14 +120,8 @@ def format_calendar_event_summary(assignment: dict) -> str:
             return f"{subj}_시험"
         return f"{subj}_시험"
 
-    ek = classify_exam_kind_from_title(title)
-    if ek == "midterm":
-        return f"{subj}_중간고사"
-    if ek == "final":
-        return f"{subj}_기말고사"
-    if ek == "general":
-        return f"{subj}_시험"
-
+    # assign·quiz: 실제 과제 제목 그대로 사용 (시험 키워드로 이름 변환 금지)
+    # "중간고사 대체 서평과제 제출" → "정치학개론_중간고사 대체 서평과제 제출"
     return f"{subj}_{title}"
 
 
