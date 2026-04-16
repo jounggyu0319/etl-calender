@@ -428,6 +428,35 @@
       `;
     }
 
+    function renderSyncHistoryRows(rows) {
+      const el = $("sync-history");
+      if (!el) return;
+      el.classList.remove("hidden");
+      if (!rows || rows.length === 0) {
+        el.innerHTML = `<div class="text-sm text-slate-600">이번 동기화에서 새로 추가된 일정이 없어요.</div>`;
+        return;
+      }
+      const typeBadge = (t) => {
+        if (t === "exam" || t === "announcement_midterm" || t === "announcement_final") {
+          return `<span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">시험</span>`;
+        }
+        return `<span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">과제</span>`;
+      };
+      const items = rows.map(r => `
+        <div class="flex items-start gap-2 py-1.5 border-b border-slate-100 last:border-0">
+          ${typeBadge(r.activity_type)}
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm text-slate-800">${escHtml(r.event_title || r.subject || "")}</p>
+            ${r.deadline_date ? `<p class="text-xs text-slate-500">마감 ${escHtml(r.deadline_date)}</p>` : ""}
+          </div>
+        </div>
+      `).join("");
+      el.innerHTML = `
+        <p class="mb-2 text-xs font-semibold text-slate-500">이번 동기화에서 <span class="text-snu font-bold">${rows.length}</span>건 추가</p>
+        ${items}
+      `;
+    }
+
     function renderColorPicker(containerId, selectedId, roleName) {
       const root = $(containerId);
       if (!root) return;
@@ -809,14 +838,24 @@
       return lines.join("\n");
     }
 
+    async function fetchAndRenderHistory(since) {
+      try {
+        const url = since ? `/api/sync/history?since=${encodeURIComponent(since)}&limit=50` : "/api/sync/history?limit=50";
+        const rows = await api(url);
+        writeSyncHistory(rows.length);
+        renderSyncHistoryRows(rows);
+      } catch {
+        renderSyncHistory();
+      }
+    }
+
     $("btn-sync").onclick = async () => {
       setSyncOutMessage("");
+      const syncStart = new Date().toISOString();
       try {
         const r = await api("/api/sync/", { method: "POST" });
         setSyncOutMessage(formatSyncResult(r));
-        const totalAdded = (r.calendar_events_created || 0) + (r.ics_events_created || 0);
-        writeSyncHistory(totalAdded);
-        renderSyncHistory();
+        await fetchAndRenderHistory(syncStart);
         await refreshMe();
       } catch (e) {
         setSyncOutMessage(toFriendlyError(e) || "동기화에 실패했습니다.");
@@ -827,12 +866,11 @@
       setSyncOutMessage("");
       const b = $("btn-etl-continue");
       b.disabled = true;
+      const syncStart = new Date().toISOString();
       try {
         const r = await api("/api/sync/canvas", { method: "POST" });
         setSyncOutMessage(formatSyncResult(r));
-        const totalAdded = (r.calendar_events_created || 0) + (r.ics_events_created || 0);
-        writeSyncHistory(totalAdded);
-        renderSyncHistory();
+        await fetchAndRenderHistory(syncStart);
         await refreshMe();
       } catch (e) {
         setSyncOutMessage(toFriendlyError(e) || "실패했습니다.");

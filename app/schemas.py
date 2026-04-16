@@ -105,6 +105,17 @@ class SyncResult(BaseModel):
     canvas_server_context: bool = False
 
 
+class SyncLogOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    synced_at: datetime
+    event_title: str
+    subject: str
+    activity_type: str
+    deadline_date: str | None = None
+
+
 class BillingStatus(BaseModel):
     plan: str
     stripe_customer_id: str | None

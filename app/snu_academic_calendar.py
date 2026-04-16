@@ -88,7 +88,7 @@ def _instant_in_instructional_window(dt: datetime, *, now: datetime | None = Non
 
 
 def due_at_in_active_window(due_iso: str | None, *, now: datetime | None = None) -> bool:
-    """Canvas due_at(ISO-8601)이 현재 정책 창 안에 있는지 (null 제외)."""
+    """Canvas due_at(ISO-8601)이 현재 정책 창 안에 있고 현재 시각 이후인지 (과거 마감 제외)."""
     if not due_iso or not str(due_iso).strip():
         return False
     raw = str(due_iso).strip().replace("Z", "+00:00")
@@ -96,7 +96,12 @@ def due_at_in_active_window(due_iso: str | None, *, now: datetime | None = None)
         due = datetime.fromisoformat(raw)
     except ValueError:
         return False
-    return _instant_in_instructional_window(due, now=now)
+    if due.tzinfo is None:
+        due = due.replace(tzinfo=SEOUL)
+    else:
+        due = due.astimezone(SEOUL)
+    now_dt = now.astimezone(SEOUL) if now and now.tzinfo else (now.replace(tzinfo=SEOUL) if now else datetime.now(SEOUL))
+    return _instant_in_instructional_window(due, now=now) and due >= now_dt
 
 
 def posted_at_in_active_window(posted_iso: str | None, *, now: datetime | None = None) -> bool:

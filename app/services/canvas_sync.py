@@ -117,6 +117,9 @@ def _course_label(c: dict[str, Any]) -> str:
     code = str(c.get("course_code") or "").strip()
     name = str(c.get("name") or "").strip()
     if code and name:
+        # course_code와 name이 동일하거나 한쪽이 다른 쪽을 포함하면 중복 방지
+        if code == name or code in name or name in code:
+            return name or code
         return f"{code} {name}"
     return name or code or f"Course {c.get('id')}"
 

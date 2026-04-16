@@ -96,14 +96,21 @@ def sync_history(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     limit: int = Query(default=100, le=200),
+    since: str | None = Query(default=None, description="ISO-8601 timestamp — 이 시각 이후 항목만 반환"),
 ) -> list[SyncLog]:
-    """최근 동기화에서 Google Calendar에 추가된 항목 목록."""
-    rows = db.scalars(
-        select(SyncLog)
-        .where(SyncLog.user_id == user.id)
-        .order_by(SyncLog.synced_at.desc())
-        .limit(limit)
-    ).all()
+    """동기화에서 Google Calendar에 추가된 항목 목록. since 지정 시 해당 회차 항목만 반환."""
+    from datetime import timezone as _tz
+    from datetime import datetime as _dt
+    q = select(SyncLog).where(SyncLog.user_id == user.id)
+    if since:
+        try:
+            since_dt = _dt.fromisoformat(since.replace("Z", "+00:00"))
+            if since_dt.tzinfo is None:
+                since_dt = since_dt.replace(tzinfo=_tz.utc)
+            q = q.where(SyncLog.synced_at >= since_dt)
+        except ValueError:
+            pass
+    rows = db.scalars(q.order_by(SyncLog.synced_at.desc()).limit(limit)).all()
     return list(rows)
 
 
