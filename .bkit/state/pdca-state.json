@@ -4,7 +4,7 @@
   "activeFeature": "debugging-and-stability",
   "phase": "act",
   "iteration": 2,
-  "lastUpdated": "2026-04-16T-v3",
+  "lastUpdated": "2026-04-16T-v4",
   "workflow": {
     "model": "commander-worker",
     "commanders": ["사용자(jounggyu)", "Claude Code"],
