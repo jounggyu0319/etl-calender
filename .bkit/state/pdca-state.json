@@ -31,7 +31,25 @@
       "Claude Code는 Cursor에게 내릴 구체적 프롬프트를 작성해 전달",
       "Cursor는 명령받은 단일 작업만 수행, 판단은 Claude Code에게"
     ],
-    "note": "Claude Code가 직접 코드를 짜는 경우도 있으나, 규모 있는 작업은 Cursor 두 agent에게 병렬 하달하는 것이 목표"
+    "note": "Claude Code가 직접 코드를 짜는 경우도 있으나, 규모 있는 작업은 Cursor 두 agent에게 병렬 하달하는 것이 목표",
+    "collision_guard": {
+      "description": "여러 agent가 같은 파일을 수정할 때 기존 기능이 유실되는 사고 방지 지침",
+      "high_risk_files": [
+        "static/index.html — JS 핸들러(onclick, polling 루프 등)가 많아 부분 재작성 시 유실 위험",
+        "app/models.py — 클래스 추가 내역이 누락되기 쉬움 (developer agent가 덮어쓴 전례 있음)",
+        "app/schemas.py — SyncLogOut 등 신규 스키마가 agent 재작성 시 누락될 수 있음"
+      ],
+      "rules": [
+        "agent 프롬프트에 '수정 금지 영역' 명시 필수 (예: pollProgress 루프, SyncLog 클래스 건드리지 말 것)",
+        "병렬 agent 작업 완료 후 반드시 git diff로 유실 기능 확인",
+        "static/index.html은 JS 핸들러 단위로 수정 범위 한정 — '전체 개선' 식 포괄 지시 금지",
+        "models.py 수정 후 python3 -c 'from app.models import SyncLog' 등 import 검증 필수"
+      ],
+      "incidents": [
+        "2026-04-16: designer agent가 btn-etl-continue 핸들러 단순화 시 progress 폴링 루프 삭제 → 강의 스캔 현황 표시 유실",
+        "2026-04-16: developer agent가 models.py 재작성 시 SyncLog 클래스 삭제 → import 오류"
+      ]
+    }
   },
   "features": {
     "etl-extension-no2fa": {
