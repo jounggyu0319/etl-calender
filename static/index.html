@@ -890,12 +890,37 @@
       const b = $("btn-etl-continue");
       b.disabled = true;
       const syncStart = new Date().toISOString();
+
+      // Progress 폴링 — 동기화 중 강의 스캔 현황 실시간 표시
+      let pollTimer = null;
+      function startPolling() {
+        pollTimer = setInterval(async () => {
+          try {
+            const p = await api("/api/sync/progress");
+            if (p.running) {
+              const idx = p.course_index || 0;
+              const tot = p.course_total || 0;
+              const name = p.course_name || "";
+              const countStr = tot > 0 ? ` (${idx}/${tot})` : "";
+              setSyncOutMessage(name ? `${name} 스캔 중…${countStr}` : (p.phase || "동기화 중…"));
+            }
+          } catch { /* 폴링 오류 무시 */ }
+        }, 1000);
+      }
+      function stopPolling() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      }
+
       try {
+        startPolling();
+        setSyncOutMessage("강의 목록 불러오는 중…");
         const r = await api("/api/sync/canvas", { method: "POST" });
+        stopPolling();
         setSyncOutMessage(formatSyncResult(r));
         await fetchAndRenderHistory(syncStart);
         await refreshMe();
       } catch (e) {
+        stopPolling();
         setSyncOutMessage(toFriendlyError(e) || "실패했습니다.");
       } finally {
         b.disabled = false;
