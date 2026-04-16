@@ -15,6 +15,28 @@ logger = logging.getLogger(__name__)
 _MAX_LOGS_PER_USER = 200
 
 
+def prune_sync_logs(db: Session, user_id: int) -> None:
+    """사용자 sync_logs를 최근 _MAX_LOGS_PER_USER건으로 유지."""
+    try:
+        from sqlalchemy import delete, func, select
+
+        count = db.scalar(
+            select(func.count()).select_from(SyncLog).where(SyncLog.user_id == user_id)
+        ) or 0
+        if count <= _MAX_LOGS_PER_USER:
+            return
+        oldest_ids = db.scalars(
+            select(SyncLog.id)
+            .where(SyncLog.user_id == user_id)
+            .order_by(SyncLog.synced_at.asc())
+            .limit(count - _MAX_LOGS_PER_USER)
+        ).all()
+        if oldest_ids:
+            db.execute(delete(SyncLog).where(SyncLog.id.in_(oldest_ids)))
+    except Exception as exc:
+        logger.warning("[sync_log] 로그 정리 실패 (user_id=%d): %s", user_id, exc)
+
+
 def log_sync_item(db: Session, user_id: int, assignment: dict) -> None:
     """캘린더에 성공적으로 추가된 항목을 sync_logs에 기록.
 
@@ -45,21 +67,5 @@ def log_sync_item(db: Session, user_id: int, assignment: dict) -> None:
         )
         db.add(entry)
         db.flush()  # ID 확보 (commit은 호출부에서)
-
-        # 오래된 로그 정리
-        from sqlalchemy import select, delete, func
-        count = db.scalar(
-            select(func.count()).select_from(SyncLog).where(SyncLog.user_id == user_id)
-        ) or 0
-        if count > _MAX_LOGS_PER_USER:
-            # 가장 오래된 항목 ID 목록
-            oldest_ids = db.scalars(
-                select(SyncLog.id)
-                .where(SyncLog.user_id == user_id)
-                .order_by(SyncLog.synced_at.asc())
-                .limit(count - _MAX_LOGS_PER_USER)
-            ).all()
-            if oldest_ids:
-                db.execute(delete(SyncLog).where(SyncLog.id.in_(oldest_ids)))
     except Exception as exc:
         logger.warning("[sync_log] 로그 저장 실패 (user_id=%d): %s", user_id, exc)

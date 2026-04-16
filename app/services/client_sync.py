@@ -24,7 +24,7 @@ from calendar_service import (
     probe_calendar_access,
 )
 from app.services.gemini_classifier import classify_exam_announcement
-from app.services.sync_log import log_sync_item
+from app.services.sync_log import log_sync_item, prune_sync_logs
 
 
 def import_from_client(
@@ -169,6 +169,8 @@ def import_from_client(
     if fresh_google_json != google_json:
         user.google_creds_enc = encrypt_text(fresh_google_json, settings)
     db.add(user)
+    # 원인: 항목별 prune으로 count/select/delete가 반복되어 N+1 쿼리가 발생함.
+    prune_sync_logs(db, user.id)
     try:
         db.commit()
     except Exception as exc:
