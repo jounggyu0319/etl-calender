@@ -833,10 +833,9 @@
         });
         localStorage.setItem(tokenKey, data.access_token);
         showBanner("ok", "로그인되었습니다.");
-        try {
-          await refreshMe();
-        } catch {
-          // 로그인은 성공했지만 대시보드 로딩 실패 → 페이지 새로고침으로 복구
+        await refreshMe();
+        // refreshMe가 내부에서 에러를 삼키는 경우 대시보드가 여전히 숨겨져 있으면 강제 새로고침
+        if ($("auth-card") && !$("auth-card").classList.contains("hidden")) {
           location.reload();
         }
       } catch (e) {
@@ -867,10 +866,9 @@
         });
         localStorage.setItem(tokenKey, data.access_token);
         showBanner("ok", "가입되었습니다.");
-        try {
-          await refreshMe();
-        } catch {
-          // 가입은 성공했지만 대시보드 로딩 실패 → 페이지 새로고침으로 복구
+        await refreshMe();
+        // refreshMe가 내부에서 에러를 삼키는 경우 대시보드가 여전히 숨겨져 있으면 강제 새로고침
+        if ($("auth-card") && !$("auth-card").classList.contains("hidden")) {
           location.reload();
         }
       } catch (e) {
