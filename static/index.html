@@ -98,7 +98,7 @@
         <p class="text-sm font-semibold text-slate-800">처음이라면 이렇게 시작해요</p>
         <ol class="mt-2 list-decimal space-y-1.5 pl-5 text-sm text-slate-600">
           <li>Google 캘린더 연결</li>
-          <li>myetl 구독 URL 또는 Canvas 토큰 등록</li>
+          <li>기본 일정 링크 또는 공지·과제 동기화 키 등록</li>
           <li>동기화 버튼 클릭!</li>
         </ol>
       </div>
@@ -111,7 +111,7 @@
         <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div class="min-w-0 flex-1">
             <h2 class="text-lg font-bold text-slate-900">내 연결 상태</h2>
-            <p class="mt-1 text-sm text-slate-500">Google·캘린더 구독 URL·Canvas 토큰을 연결하면 동기화할 수 있어요.</p>
+            <p class="mt-1 text-sm text-slate-500">Google·기본 일정·공지·과제를 연결하면 동기화할 수 있어요.</p>
           </div>
           <button type="button" id="btn-logout-dash"
             class="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900">
@@ -151,17 +151,17 @@
         <div id="sync-row-one" class="mb-4">
           <button type="button" id="btn-sync"
             class="flex min-h-[3rem] w-full items-center justify-center gap-2 rounded-2xl bg-snu px-4 py-3.5 text-[15px] font-semibold text-white shadow-lift transition hover:bg-[#002a5c] active:scale-[0.99] disabled:opacity-45">
-            <span class="text-lg" aria-hidden="true">📅</span> 구독 URL로 동기화
+            <span class="text-lg" aria-hidden="true">📅</span> 기본 일정 동기화
           </button>
-          <p class="mt-2.5 text-center text-xs leading-relaxed text-slate-500 sm:text-left">캘린더 구독 URL 기준으로 빠르게 반영해요.</p>
+          <p class="mt-2.5 text-center text-xs leading-relaxed text-slate-500 sm:text-left">eTL 캘린더에 있는 마감일 일정을 빠르게 반영해요.</p>
         </div>
 
         <div id="sync-row-etl" class="hidden space-y-3" style="display:none;">
           <button type="button" id="btn-etl-continue"
             class="flex min-h-[3rem] w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3.5 text-[15px] font-semibold text-white shadow-md transition hover:bg-slate-800 active:scale-[0.99] disabled:opacity-45">
-            <span class="text-lg" aria-hidden="true">🔄</span> Canvas 토큰으로 동기화
+            <span class="text-lg" aria-hidden="true">🔄</span> 공지·과제 전체 동기화
           </button>
-          <p class="text-xs leading-relaxed text-slate-500">Canvas API 토큰을 저장한 뒤 눌러 주세요.</p>
+          <p class="text-xs leading-relaxed text-slate-500">공지·과제·퀴즈를 포함한 전체 일정을 동기화해요.</p>
         </div>
 
         <p id="sync-hint" class="mt-4 rounded-xl bg-slate-100/80 px-3 py-2.5 text-xs leading-relaxed text-slate-600"></p>
@@ -201,19 +201,19 @@
 
         <div class="mb-6">
           <div class="mb-3 flex items-center justify-between gap-2">
-            <h3 class="text-sm font-semibold text-slate-800">캘린더 구독 URL</h3>
-            <span class="text-xs text-slate-400">간편 동기화용</span>
+            <h3 class="text-sm font-semibold text-slate-800">기본 일정 링크</h3>
+            <span class="text-xs text-slate-400">마감일 있는 일정</span>
           </div>
           <details class="mb-3 rounded-xl border border-slate-200 bg-slate-50/70">
             <summary class="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-slate-700 [&::-webkit-details-marker]:hidden">
-              ? myetl 캘린더 구독 URL(iCal)이 뭔가요?
+              ? 기본 일정 링크가 뭔가요?
             </summary>
             <div class="border-t border-slate-200 px-3 py-2.5 text-xs leading-relaxed text-slate-600">
-              myetl(수업 관리 시스템)에서 발급하는 개인 캘린더 링크예요. 이 URL을 등록하면 서버가 주기적으로 일정을 가져와 Google 캘린더에 자동 추가해요.<br />
+              myetl 캘린더에서 발급하는 개인 일정 링크예요. 이 링크를 등록하면 eTL에 있는 마감일 일정을 Google 캘린더에 자동으로 가져와요.<br />
               발급 방법: myetl 로그인 → 캘린더 → '캘린더 내보내기' → URL 복사
             </div>
           </details>
-          <label for="moodle-feed-url" class="sr-only">캘린더 구독 링크</label>
+          <label for="moodle-feed-url" class="sr-only">기본 일정 링크</label>
           <textarea id="moodle-feed-url" rows="2" spellcheck="false"
             class="w-full resize-y rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-900 shadow-sm outline-none ring-snu/15 focus:border-snu focus:ring-4"
             placeholder="https://myetl.snu.ac.kr/calendar/export.php?…"></textarea>
@@ -222,34 +222,34 @@
           </p>
           <button type="button" id="btn-save-moodle-feed"
             class="mt-3 w-full rounded-xl bg-snu px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#002a5c] sm:w-auto sm:px-6">
-            구독 URL 저장
+            링크 저장
           </button>
         </div>
 
         <div class="mb-6 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
           <div class="mb-3 flex items-center justify-between gap-2">
-            <h3 class="text-sm font-semibold text-slate-800">Canvas API 토큰</h3>
-            <span class="text-xs text-slate-400">전체 동기화(서버)</span>
+            <h3 class="text-sm font-semibold text-slate-800">공지·과제 동기화 키</h3>
+            <span class="text-xs text-slate-400">공지·퀴즈·과제 전부</span>
           </div>
           <details class="mb-3 rounded-xl border border-slate-200 bg-white/70">
             <summary class="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-slate-700 [&::-webkit-details-marker]:hidden">
-              ? Canvas API 토큰이 뭔가요?
+              ? 공지·과제 동기화 키가 뭔가요?
             </summary>
             <div class="border-t border-slate-200 px-3 py-2.5 text-xs leading-relaxed text-slate-600">
-              myetl이 여러분 계정에 안전하게 접근할 수 있도록 허용하는 비밀번호 같은 키예요. 비밀번호 자체를 저장하지 않고, 이 토큰만으로 과제·퀴즈를 가져올 수 있어요.<br />
+              서버가 내 계정으로 공지·과제·퀴즈를 가져올 수 있도록 허용하는 개인 키예요. 비밀번호 자체는 저장하지 않아요.<br />
               발급 방법: myetl 로그인 → 우측 상단 프로필 → 설정 → '새 액세스 토큰' 생성
             </div>
           </details>
-          <label for="canvas-api-token" class="sr-only">Canvas 액세스 토큰</label>
+          <label for="canvas-api-token" class="sr-only">공지·과제 동기화 키</label>
           <input id="canvas-api-token" type="password" autocomplete="off" spellcheck="false"
             placeholder="myetl 프로필 → «새 액세스 토큰»"
             class="mb-2 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 font-mono text-sm outline-none ring-snu/15 focus:border-snu focus:ring-4" />
           <p class="mb-2 text-xs leading-relaxed text-slate-500">
-            <a href="https://myetl.snu.ac.kr/profile/settings" target="_blank" rel="noopener noreferrer" class="font-medium text-snu underline decoration-snu/30 underline-offset-2 hover:decoration-snu">myetl 설정</a>에서 토큰을 발급한 뒤 붙여 넣고 저장하세요. 저장하면 Render 등 클라우드에서도「전체 동기화」가 서버 Canvas API로 동작합니다. 비우고 저장하면 삭제됩니다.
+            <a href="https://myetl.snu.ac.kr/profile/settings" target="_blank" rel="noopener noreferrer" class="font-medium text-snu underline decoration-snu/30 underline-offset-2 hover:decoration-snu">myetl 설정</a>에서 키를 발급한 뒤 붙여 넣고 저장하세요. 저장하면 공지·과제·퀴즈까지 전부 Google 캘린더에 반영돼요. 비우고 저장하면 삭제됩니다.
           </p>
           <button type="button" id="btn-save-canvas-token"
             class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 sm:w-auto">
-            Canvas 토큰 저장
+            키 저장
           </button>
         </div>
 
@@ -725,9 +725,9 @@
             <span class="rounded-full bg-white px-2.5 py-0.5 text-xs font-semibold text-snu ring-1 ring-slate-200">${escHtml(me.plan)}</span>
           </div>
           <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            ${statusChip(me.has_google, "Google", me.has_google ? "연결됨" : "미연결", me.has_google ? "google" : "")}
-            ${statusChip(me.has_moodle_calendar_feed, "구독 URL", me.has_moodle_calendar_feed ? "저장됨" : "없음", me.has_moodle_calendar_feed ? "feed" : "")}
-            ${statusChip(me.has_canvas_token, "Canvas 토큰", me.has_canvas_token ? "저장됨" : "없음", me.has_canvas_token ? "canvas" : "")}
+            ${statusChip(me.has_google, "Google 캘린더", me.has_google ? "연결됨" : "미연결", me.has_google ? "google" : "")}
+            ${statusChip(me.has_moodle_calendar_feed, "기본 일정", me.has_moodle_calendar_feed ? "연결됨" : "없음", me.has_moodle_calendar_feed ? "feed" : "")}
+            ${statusChip(me.has_canvas_token, "공지·과제 전체", me.has_canvas_token ? "연결됨" : "없음", me.has_canvas_token ? "canvas" : "")}
           </div>
         `;
 
@@ -739,7 +739,7 @@
         $("auto-sync-toggle").checked = !!me.auto_sync_enabled;
         const autoNeed = !me.has_google || !me.has_moodle_calendar_feed;
         $("auto-sync-hint").textContent = autoNeed
-          ? "Google 연결과 캘린더 구독 URL이 모두 있어야 자동 동기화가 동작해요."
+          ? "Google 연결과 기본 일정 링크가 모두 있어야 자동 동기화가 동작해요."
           : "서버가 주기적으로 구독 캘린더를 가져와 Google에 반영해요. (Render 무료 플랜은 비활성 시 실행이 지연될 수 있어요.)";
 
         const hcanvas = me.has_canvas_token;
@@ -749,8 +749,8 @@
         $("btn-sync").innerHTML =
           '<span class="text-lg" aria-hidden="true">📅</span> 간편 동기화';
         $("sync-hint").textContent = hcanvas
-          ? "Canvas API 토큰이 있으면「전체 동기화」는 서버에서 myetl REST API로 처리돼요(브라우저·Selenium 불필요)."
-          : "구독 URL만 있으면 보통 창 없이 끝나요. 과제·퀴즈까지 하려면 myetl에서 Canvas API 토큰을 발급해 저장하세요.";
+          ? "공지·과제 동기화 키가 있으면 공지·과제·퀴즈까지 전부 Google 캘린더에 반영해요."
+          : "기본 일정 링크만 있으면 마감일 일정을 빠르게 동기화할 수 있어요. 공지·과제까지 하려면 myetl에서 키를 발급해 저장하세요.";
       } catch (e) {
         localStorage.removeItem(tokenKey);
         $("dash").style.display = "none";
@@ -766,10 +766,10 @@
       const out = await _refreshMeOriginal(...args);
       // refreshMe에서 버튼 텍스트를 덮어쓸 수 있어 후처리로 비개발자 친화 문구 고정
       if ($("btn-sync")) {
-        $("btn-sync").innerHTML = '<span class="text-lg" aria-hidden="true">📅</span> 구독 URL로 동기화';
+        $("btn-sync").innerHTML = '<span class="text-lg" aria-hidden="true">📅</span> 기본 일정 동기화';
       }
       if ($("btn-etl-continue")) {
-        $("btn-etl-continue").innerHTML = '<span class="text-lg" aria-hidden="true">🔄</span> Canvas 토큰으로 동기화';
+        $("btn-etl-continue").innerHTML = '<span class="text-lg" aria-hidden="true">🔄</span> 공지·과제 전체 동기화';
       }
       if ($("auto-sync-block") && $("auto-sync-block").firstElementChild) {
         const titleEl = $("auto-sync-block").querySelector("span.text-sm.font-semibold");
@@ -844,7 +844,7 @@
           body: JSON.stringify({ token: $("canvas-api-token").value.trim() }),
         });
         $("canvas-api-token").value = "";
-        showBanner("ok", "Canvas 토큰을 저장했습니다.");
+        showBanner("ok", "공지·과제 동기화 키를 저장했습니다.");
         await refreshMe();
       } catch (e) {
         showBanner("err", e.message || "저장에 실패했습니다.");
@@ -877,7 +877,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ feed_url: $("moodle-feed-url").value.trim() }),
         });
-        showBanner("ok", "구독 URL을 저장했습니다.");
+        showBanner("ok", "기본 일정 링크를 저장했습니다.");
         await refreshMe();
       } catch (e) {
         showBanner("err", e.message || "저장에 실패했습니다.");
@@ -934,11 +934,11 @@
       } else if (icalOnly) {
         if (!feedOk) {
           lines.push(
-            "캘린더 구독 URL이 아직 없어요. myetl 캘린더 → «URL 주소 가져오기»로 받은 링크를 저장한 뒤 다시 눌러 주세요."
+            "기본 일정 링크가 아직 없어요. myetl 캘린더 → «URL 주소 가져오기»로 받은 링크를 저장한 뒤 다시 눌러 주세요."
           );
         } else if (syncFail) {
           lines.push(
-            "저장된 구독 URL로 일정을 받아오지 못했어요. `calendar/export.php` 또는 `calendar/export_execute.php` 형태인지, 토큰 만료 여부를 확인해 주세요."
+            "저장된 기본 일정 링크로 일정을 받아오지 못했어요. `calendar/export.php` 형태인지, 링크가 만료되지 않았는지 확인해 주세요."
           );
         } else if (syncOk) {
           if ((r.ics_events_created || 0) > 0) {
@@ -952,7 +952,7 @@
           if (r.message) lines.push(String(r.message));
         } else {
           if (r.courses_found === 0 && courseScanned) {
-            lines.push("⚠️ 강의를 찾지 못했어요. Canvas 토큰 설정을 확인하고 다시 시도해 주세요.");
+            lines.push("⚠️ 강의를 찾지 못했어요. 공지·과제 동기화 키 설정을 확인하고 다시 시도해 주세요.");
           } else if (courseScanned) {
             lines.push(
               `강의 ${r.courses_found}개를 확인했어요. (과제 ${r.assign_links_found}·퀴즈 ${r.quiz_links_found}·공지 관련 ${r.announcement_keyword_hits ?? 0})`
@@ -990,7 +990,7 @@
         lines.push("다음: 창에서 로그인을 마친 뒤 이 페이지에서 「전체 동기화」를 눌러 주세요.");
       }
       if (!r.login_ok && !r.etl_awaiting_user && courseScanned && !r.canvas_server_context) {
-        lines.push("문제가 계속되면 Canvas 토큰·구독 URL 설정을 확인해 주세요.");
+        lines.push("문제가 계속되면 공지·과제 동기화 키와 기본 일정 링크 설정을 확인해 주세요.");
       }
       return lines.join("\n");
     }
