@@ -206,20 +206,22 @@
           </div>
           <details class="mb-3 rounded-xl border border-slate-200 bg-slate-50/70">
             <summary class="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-slate-700 [&::-webkit-details-marker]:hidden">
-              ? 기본 일정 링크가 뭔가요?
+              ? 기본 일정 링크 발급 방법
             </summary>
-            <div class="border-t border-slate-200 px-3 py-2.5 text-xs leading-relaxed text-slate-600">
-              myetl 캘린더에서 발급하는 개인 일정 링크예요. 이 링크를 등록하면 eTL에 있는 마감일 일정을 Google 캘린더에 자동으로 가져와요.<br />
-              발급 방법: myetl 로그인 → 캘린더 → '캘린더 내보내기' → URL 복사
+            <div class="border-t border-slate-200 px-3 py-2.5 text-xs leading-relaxed text-slate-600 space-y-1">
+              <p>eTL에 있는 마감일 일정을 자동으로 가져오는 개인 링크예요.</p>
+              <ol class="list-decimal pl-4 space-y-0.5">
+                <li><a href="https://myetl.snu.ac.kr/calendar" target="_blank" rel="noopener noreferrer" class="font-medium text-snu underline decoration-snu/30 underline-offset-2 hover:decoration-snu">myetl 캘린더</a> 접속</li>
+                <li>우측 하단 <span class="font-medium">캘린더 피드</span> 클릭</li>
+                <li>표시된 URL 복사 후 아래에 붙여넣기</li>
+              </ol>
             </div>
           </details>
           <label for="moodle-feed-url" class="sr-only">기본 일정 링크</label>
           <textarea id="moodle-feed-url" rows="2" spellcheck="false"
             class="w-full resize-y rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-900 shadow-sm outline-none ring-snu/15 focus:border-snu focus:ring-4"
             placeholder="https://myetl.snu.ac.kr/calendar/export.php?…"></textarea>
-          <p class="mt-2 text-xs leading-relaxed text-slate-500">
-            <a href="https://myetl.snu.ac.kr/calendar" target="_blank" rel="noopener noreferrer" class="font-medium text-snu underline decoration-snu/30 underline-offset-2 hover:decoration-snu">myetl 캘린더</a>에서 «URL 주소 가져오기»로 복사한 주소를 붙여 넣어요. 비우고 저장하면 삭제돼요.
-          </p>
+          <p class="mt-2 text-xs text-slate-400">비우고 저장하면 삭제돼요.</p>
           <button type="button" id="btn-save-moodle-feed"
             class="mt-3 w-full rounded-xl bg-snu px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#002a5c] sm:w-auto sm:px-6">
             링크 저장
@@ -233,20 +235,23 @@
           </div>
           <details class="mb-3 rounded-xl border border-slate-200 bg-white/70">
             <summary class="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-slate-700 [&::-webkit-details-marker]:hidden">
-              ? 공지·과제 동기화 키가 뭔가요?
+              ? 공지·과제 동기화 키 발급 방법
             </summary>
-            <div class="border-t border-slate-200 px-3 py-2.5 text-xs leading-relaxed text-slate-600">
-              서버가 내 계정으로 공지·과제·퀴즈를 가져올 수 있도록 허용하는 개인 키예요. 비밀번호 자체는 저장하지 않아요.<br />
-              발급 방법: myetl 로그인 → 우측 상단 프로필 → 설정 → '새 액세스 토큰' 생성
+            <div class="border-t border-slate-200 px-3 py-2.5 text-xs leading-relaxed text-slate-600 space-y-1">
+              <p>서버가 내 계정으로 공지·과제·퀴즈를 가져올 수 있게 해주는 개인 키예요. 비밀번호 자체는 저장하지 않아요.</p>
+              <ol class="list-decimal pl-4 space-y-0.5">
+                <li><a href="https://myetl.snu.ac.kr/profile/settings" target="_blank" rel="noopener noreferrer" class="font-medium text-snu underline decoration-snu/30 underline-offset-2 hover:decoration-snu">myetl 설정</a> 접속 → <span class="font-medium">+ 새 액세스 토큰</span> 클릭</li>
+                <li>목적에 아무 이름 입력 (예: <span class="font-mono bg-slate-100 px-1 rounded">etl-calendar</span>)</li>
+                <li>만료일은 <span class="font-medium">비워두기</span> → <span class="font-medium">토큰 생성</span></li>
+                <li>표시된 토큰 복사 후 아래에 붙여넣기 <span class="text-slate-400">(창 닫으면 다시 볼 수 없어요)</span></li>
+              </ol>
             </div>
           </details>
           <label for="canvas-api-token" class="sr-only">공지·과제 동기화 키</label>
           <input id="canvas-api-token" type="password" autocomplete="off" spellcheck="false"
-            placeholder="myetl 프로필 → «새 액세스 토큰»"
+            placeholder="myetl에서 발급한 액세스 토큰 붙여넣기"
             class="mb-2 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 font-mono text-sm outline-none ring-snu/15 focus:border-snu focus:ring-4" />
-          <p class="mb-2 text-xs leading-relaxed text-slate-500">
-            <a href="https://myetl.snu.ac.kr/profile/settings" target="_blank" rel="noopener noreferrer" class="font-medium text-snu underline decoration-snu/30 underline-offset-2 hover:decoration-snu">myetl 설정</a>에서 키를 발급한 뒤 붙여 넣고 저장하세요. 저장하면 공지·과제·퀴즈까지 전부 Google 캘린더에 반영돼요. 비우고 저장하면 삭제됩니다.
-          </p>
+          <p class="mb-2 text-xs text-slate-400">비우고 저장하면 삭제됩니다.</p>
           <button type="button" id="btn-save-canvas-token"
             class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 sm:w-auto">
             키 저장
