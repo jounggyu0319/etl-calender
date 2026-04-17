@@ -35,7 +35,9 @@ def register(
     settings: Settings = Depends(get_settings),
 ) -> Token:
     email = body.email.lower().strip()
+    print(f"[REGISTER] received email={email!r}", flush=True)
     exists = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
+    print(f"[REGISTER] exists={exists!r}", flush=True)
     if exists:
         raise HTTPException(status_code=400, detail="이미 가입된 이메일입니다.")
     try:
