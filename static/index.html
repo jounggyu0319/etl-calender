@@ -784,11 +784,15 @@
           ? "공지·과제 동기화 키가 있으면 공지·과제·퀴즈까지 전부 Google 캘린더에 반영해요."
           : "기본 일정 링크만 있으면 마감일 일정을 빠르게 동기화할 수 있어요. 공지·과제까지 하려면 myetl에서 키를 발급해 저장하세요.";
       } catch (e) {
-        localStorage.removeItem(tokenKey);
+        const msg = String(e?.message || "");
+        const isAuthErr = msg.includes("401") || msg.includes("unauthorized") || msg.includes("만료") || msg.includes("로그인");
+        if (isAuthErr) {
+          localStorage.removeItem(tokenKey);
+        }
         $("dash").style.display = "none";
         $("dash").classList.add("hidden");
         $("auth-card").classList.remove("hidden");
-        showBanner("err", e.message || "세션이 만료되었습니다. 다시 로그인해 주세요.");
+        showBanner("err", isAuthErr ? (e.message || "세션이 만료되었습니다. 다시 로그인해 주세요.") : "잠시 문제가 있어요. 페이지를 새로고침해 주세요.");
       }
     }
 
@@ -829,7 +833,12 @@
         });
         localStorage.setItem(tokenKey, data.access_token);
         showBanner("ok", "로그인되었습니다.");
-        await refreshMe();
+        try {
+          await refreshMe();
+        } catch {
+          // 로그인은 성공했지만 대시보드 로딩 실패 → 페이지 새로고침으로 복구
+          location.reload();
+        }
       } catch (e) {
         showBanner("err", e.message || "로그인에 실패했습니다.");
       }
@@ -858,7 +867,12 @@
         });
         localStorage.setItem(tokenKey, data.access_token);
         showBanner("ok", "가입되었습니다.");
-        await refreshMe();
+        try {
+          await refreshMe();
+        } catch {
+          // 가입은 성공했지만 대시보드 로딩 실패 → 페이지 새로고침으로 복구
+          location.reload();
+        }
       } catch (e) {
         showBanner("err", e.message || "가입에 실패했습니다.");
       }
