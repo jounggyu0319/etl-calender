@@ -584,7 +584,7 @@
         $("auth-card").classList.add("hidden");
         $("dash").style.display = "block";
         $("dash").classList.remove("hidden");
-        renderSyncHistory();
+        fetchAndRenderHistory().catch(() => renderSyncHistory());
 
         $("me-kv").innerHTML = `
           <div class="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
@@ -893,10 +893,14 @@
 
       // Progress 폴링 — 동기화 중 강의 스캔 현황 실시간 표시
       let pollTimer = null;
+      let pollActive = false;
       function startPolling() {
+        pollActive = true;
         pollTimer = setInterval(async () => {
+          if (!pollActive) return;
           try {
             const p = await api("/api/sync/progress");
+            if (!pollActive) return;
             if (p.running) {
               const idx = p.course_index || 0;
               const tot = p.course_total || 0;
@@ -908,6 +912,7 @@
         }, 1000);
       }
       function stopPolling() {
+        pollActive = false;
         if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
       }
 
