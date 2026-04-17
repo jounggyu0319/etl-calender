@@ -454,7 +454,8 @@
       }
       el.classList.remove("hidden");
       const when = formatKSTShort(h.at);
-      const cnt = Number.isFinite(h.added) ? h.added : 0;
+      // 항목이 로드된 상태면 실제 개수, 아니면 localStorage 값
+      const cnt = _histRows !== null ? _histRows.length : (Number.isFinite(h.added) ? h.added : 0);
       const btnLabel = _histOpen ? "접기 ▲" : "내역 보기 ▼";
 
       let detailHtml = "";
