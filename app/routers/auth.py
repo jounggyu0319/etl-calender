@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -11,6 +11,21 @@ from app.schemas import Token, UserCreate
 from app.security import create_access_token, hash_password, verify_password
 
 router = APIRouter()
+
+
+@router.get("/db-check")
+def db_check(db: Session = Depends(get_db)) -> dict:
+    """DB 연결 상태 확인용 — 실제 users 테이블 조회."""
+    from app.db import engine  # noqa: PLC0415
+    db_url = str(engine.url)
+    # 비밀번호 마스킹
+    import re  # noqa: PLC0415
+    db_url_safe = re.sub(r":[^@/]+@", ":***@", db_url)
+    try:
+        count = db.execute(text("SELECT COUNT(*) FROM users")).scalar()
+        return {"db_url": db_url_safe, "user_count": count, "ok": True}
+    except Exception as exc:
+        return {"db_url": db_url_safe, "error": str(exc), "ok": False}
 
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
