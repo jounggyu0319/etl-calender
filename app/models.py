@@ -28,6 +28,7 @@ class User(Base):
     canvas_token_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
     assign_color_id: Mapped[str] = mapped_column(String(4), default="9")
     exam_color_id: Mapped[str] = mapped_column(String(4), default="11")
+    seen_assignment_ids: Mapped[str] = mapped_column(Text, default="[]")
 
     auto_sync_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     auto_sync_interval_hours: Mapped[int] = mapped_column(Integer, default=24)

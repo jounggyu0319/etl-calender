@@ -63,6 +63,8 @@ def init_db() -> None:
         stmts.append("ALTER TABLE users ADD COLUMN assign_color_id VARCHAR(4) DEFAULT '9'")
     if "exam_color_id" not in cols:
         stmts.append("ALTER TABLE users ADD COLUMN exam_color_id VARCHAR(4) DEFAULT '11'")
+    if "seen_assignment_ids" not in cols:
+        stmts.append("ALTER TABLE users ADD COLUMN seen_assignment_ids TEXT NOT NULL DEFAULT '[]'")
     for sql in stmts:
         with engine.begin() as conn:
             conn.execute(text(sql))
