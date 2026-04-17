@@ -35,32 +35,23 @@ def register(
     settings: Settings = Depends(get_settings),
 ) -> Token:
     email = body.email.lower().strip()
-    print(f"[REGISTER] received email={email!r}", flush=True)
     exists = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
-    print(f"[REGISTER] exists={exists!r}", flush=True)
     if exists:
-        print("[REGISTER] 400 path: email exists check", flush=True)
         raise HTTPException(status_code=400, detail="이미 가입된 이메일입니다.")
     try:
         hashed = hash_password(body.password)
-        print(f"[REGISTER] hash_password ok, len={len(hashed)}", flush=True)
     except Exception as exc:
-        print(f"[REGISTER] hash_password FAILED: {exc!r}", flush=True)
         raise HTTPException(status_code=500, detail=f"비밀번호 암호화 중 오류가 발생했습니다: {exc}") from exc
 
     user = User(email=email, hashed_password=hashed)
     db.add(user)
-    print("[REGISTER] attempting commit", flush=True)
     try:
         db.commit()
-        print("[REGISTER] commit ok", flush=True)
     except IntegrityError as exc:
         db.rollback()
-        print(f"[REGISTER] IntegrityError on commit: {exc!r}", flush=True)
         raise HTTPException(status_code=400, detail="이미 가입된 이메일입니다.") from exc
     except SQLAlchemyError as exc:
         db.rollback()
-        print(f"[REGISTER] SQLAlchemyError on commit: {exc!r}", flush=True)
         raise HTTPException(status_code=500, detail=f"회원가입 저장 중 오류가 발생했습니다: {exc}") from exc
     db.refresh(user)
     token = create_access_token(str(user.id), settings)
