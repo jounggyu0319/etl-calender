@@ -387,17 +387,22 @@
         return {
           at: String(j.at),
           added: Number.isFinite(j.added) ? j.added : 0,
+          syncStart: j.syncStart ? String(j.syncStart) : null,
         };
       } catch {
         return null;
       }
     }
 
-    function writeSyncHistory(added) {
+    function writeSyncHistory(added, syncStart) {
       try {
         localStorage.setItem(
           syncHistoryKey,
-          JSON.stringify({ at: new Date().toISOString(), added: Number(added) || 0 }),
+          JSON.stringify({
+            at: new Date().toISOString(),
+            added: Number(added) || 0,
+            ...(syncStart ? { syncStart: String(syncStart) } : {}),
+          }),
         );
       } catch {
         /* ignore */
@@ -484,7 +489,19 @@
       if (_histOpen && _histRows === null) {
         _renderHistoryCard();  // loading 상태 표시
         try {
-          _histRows = await api("/api/sync/history?limit=50");
+          const h = readSyncHistory();
+          // syncStart가 있으면 해당 세션 항목만, 없으면 최근 50건 중 5분 이내 그룹
+          if (h?.syncStart) {
+            _histRows = await api(`/api/sync/history?since=${encodeURIComponent(h.syncStart)}&limit=100`);
+          } else {
+            const all = await api("/api/sync/history?limit=50");
+            if (all.length > 0) {
+              const latestMs = new Date(all[0].synced_at).getTime();
+              _histRows = all.filter(r => latestMs - new Date(r.synced_at).getTime() < 5 * 60 * 1000);
+            } else {
+              _histRows = [];
+            }
+          }
         } catch {
           _histRows = [];
         }
@@ -650,7 +667,7 @@
         $("auth-card").classList.add("hidden");
         $("dash").style.display = "block";
         $("dash").classList.remove("hidden");
-        fetchAndRenderHistory().catch(() => renderSyncHistory());
+        renderSyncHistory();
 
         $("me-kv").innerHTML = `
           <div class="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
@@ -932,7 +949,10 @@
       try {
         const url = since ? `/api/sync/history?since=${encodeURIComponent(since)}&limit=50` : "/api/sync/history?limit=50";
         const rows = await api(url);
-        writeSyncHistory(rows.length);
+        if (since) {
+          // 실제 동기화 후에만 localStorage 갱신 (페이지 로드 조회로 덮어쓰지 않음)
+          writeSyncHistory(rows.length, since);
+        }
         renderSyncHistoryRows(rows);
       } catch {
         renderSyncHistory();
