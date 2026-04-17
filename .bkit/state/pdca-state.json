@@ -4,7 +4,7 @@
   "activeFeature": "debugging-and-stability",
   "phase": "act",
   "iteration": 2,
-  "lastUpdated": "2026-04-16T-v4",
+  "lastUpdated": "2026-04-17",
   "workflow": {
     "model": "commander-worker",
     "commanders": ["사용자(jounggyu)", "Claude Code"],
@@ -226,8 +226,8 @@
       ]
     },
     "auto-sync": {
-      "phase": "check",
-      "status": "in_progress",
+      "phase": "act",
+      "status": "done",
       "problem": "사용자가 수동으로 동기화해야 함 → 서버 스케줄러로 자동화, 사용자 토글로 on/off",
       "solution": "APScheduler 1h 주기 + PATCH /api/me/auto-sync + UI 토글",
       "tasks": [
@@ -236,8 +236,8 @@
         "✅ services/auto_sync.py: 유저별 iCal→Google 스케줄러",
         "✅ main.py: BackgroundScheduler lifespan 등록",
         "✅ routers/me.py: PATCH /api/me/auto-sync",
-        "✅ static/index.html: 토글 UI + 마지막 실행 시각",
-        "⬜ 배포 후 E2E 검증: 토글 → DB 저장 → 스케줄러 실행 확인"
+        "✅ static/index.html: 토글 UI + 마지막 실행 시각 + 내역 토글",
+        "✅ E2E 검증: 04.16 오후 07:00 자동 동기화 실행 확인 (Mechanics of Materials HW#3, 산업조직론_중간고사 등 항목 추가 확인)"
       ]
     },
     "connection-status-display": {
@@ -258,6 +258,24 @@
         "approach": "GET /api/me/check-connections 엔드포인트 → Google: probe_calendar_access, Canvas: GET /api/v1/courses, 구독 URL: fetch 시도 → 각 배지 옆 새로고침 아이콘으로 즉시 확인",
         "note": "page load마다 API 호출은 UX 비용 과다 → user-initiated 버튼 방식이 적합. 현재 last_sync_ok로 충분하므로 추후 폴리시 개선 시 구현."
       }
+    },
+    "session-2026-04-17": {
+      "phase": "act",
+      "status": "done",
+      "lastUpdated": "2026-04-17",
+      "tasks": [
+        "✅ 과거 일정 필터링: due_at_in_active_window에 due >= now_dt 조건 추가",
+        "✅ SyncLog / SyncLogOut 복원 (developer agent가 삭제한 것 재추가)",
+        "✅ Claude 분류기 확장: exam_time / has_deadline / deadline_date 필드 추가 (6-tuple)",
+        "✅ announcement_deadline 수집: announcement_has_deadline_hint pre-filter + canvas_sync 처리",
+        "✅ 중복 제거: _dedup_fresh — (subject, deadline_date) 기준, 정보량 점수 높은 항목 우선",
+        "✅ '캘린더에 반영 중' 잔류 버그: pollActive 플래그 + stopPolling 후 명시적 클리어",
+        "✅ 동기화 히스토리 토글 UI: 요약(시각·건수) + '내역 보기 ▼' 버튼, 세션별 항목 표시",
+        "✅ 자동 동기화 히스토리 토글: last_auto_sync_at 기준 since 쿼리로 항목 목록",
+        "✅ 히스토리 syncStart 저장: 세션 단위 항목만 조회, 페이지 로드 시 localStorage 요약만 표시",
+        "✅ Google OAuth 경고 안내: '⚠️ 연결 시 경고창이 뜨면?' details 토글 추가",
+        "✅ collision_guard 지침: bkit + memory에 충돌 방지 규칙 및 사고 사례 기록"
+      ]
     },
     "known-bugs": {
       "phase": "plan",
