@@ -298,7 +298,34 @@
       </div>
     </section>
 
-    <footer class="mt-10 pb-6 text-center text-xs leading-relaxed text-slate-400 sm:text-left">
+    <!-- 두 동기화 방식 비교 -->
+    <section class="mt-6 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card sm:p-6">
+      <h2 class="mb-4 text-sm font-bold text-slate-900">두 동기화 방식의 차이</h2>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div class="rounded-xl border border-snu/20 bg-snu/5 p-4">
+          <p class="mb-1.5 text-sm font-semibold text-snu">📅 기본 일정 동기화</p>
+          <p class="mb-2 text-xs text-slate-500">myetl 캘린더에 이미 등록된 항목만</p>
+          <ul class="space-y-1 text-xs leading-relaxed text-slate-600">
+            <li class="flex items-start gap-1.5"><span class="mt-0.5 text-emerald-500">✓</span> 마감일이 표시된 과제·퀴즈</li>
+            <li class="flex items-start gap-1.5"><span class="mt-0.5 text-emerald-500">✓</span> 빠르고 간단하게 동기화</li>
+            <li class="flex items-start gap-1.5"><span class="mt-0.5 text-slate-300">✗</span> 공지로만 올라온 시험 일정 미포함</li>
+            <li class="flex items-start gap-1.5"><span class="mt-0.5 text-slate-300">✗</span> 날짜·장소 없는 시험 공지 미포함</li>
+          </ul>
+        </div>
+        <div class="rounded-xl border border-slate-900/20 bg-slate-900/5 p-4">
+          <p class="mb-1.5 text-sm font-semibold text-slate-800">🔄 공지·과제 전체 동기화</p>
+          <p class="mb-2 text-xs text-slate-500">캔버스 API로 전체 강의를 직접 수집</p>
+          <ul class="space-y-1 text-xs leading-relaxed text-slate-600">
+            <li class="flex items-start gap-1.5"><span class="mt-0.5 text-emerald-500">✓</span> 기본 일정의 모든 항목 포함</li>
+            <li class="flex items-start gap-1.5"><span class="mt-0.5 text-emerald-500">✓</span> 공지로 올라온 중간·기말고사 일정</li>
+            <li class="flex items-start gap-1.5"><span class="mt-0.5 text-emerald-500">✓</span> 시험 날짜·시각·장소 자동 추출</li>
+            <li class="flex items-start gap-1.5"><span class="mt-0.5 text-slate-400">→</span> 공지·과제 동기화 키 등록 필요</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <footer class="mt-6 pb-6 text-center text-xs leading-relaxed text-slate-400 sm:text-left">
       myetl·Google은 각 서비스 약관을 따릅니다. 이 페이지는 일정을 옮기는 보조 도구입니다.
     </footer>
   </main>
