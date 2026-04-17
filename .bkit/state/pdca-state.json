@@ -274,7 +274,9 @@
         "✅ 자동 동기화 히스토리 토글: last_auto_sync_at 기준 since 쿼리로 항목 목록",
         "✅ 히스토리 syncStart 저장: 세션 단위 항목만 조회, 페이지 로드 시 localStorage 요약만 표시",
         "✅ Google OAuth 경고 안내: '⚠️ 연결 시 경고창이 뜨면?' details 토글 추가",
-        "✅ collision_guard 지침: bkit + memory에 충돌 방지 규칙 및 사고 사례 기록"
+        "✅ collision_guard 지침: bkit + memory에 충돌 방지 규칙 및 사고 사례 기록",
+        "✅ Chrome 확장 참조 전면 제거: 카드(lines 265-297), 설명 문구 4곳 static/index.html",
+        "✅ 모바일 최적화: iOS input 줌 방지(16px), touch-action, 컬러닷 36px, 로그인 버튼 가로 배치, break-words"
       ]
     },
     "known-bugs": {
