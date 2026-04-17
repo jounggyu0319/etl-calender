@@ -32,6 +32,59 @@ logger = logging.getLogger(__name__)
 MYETL_CANVAS_BASE = "https://myetl.snu.ac.kr"
 
 
+def _normalize_deadline_date(deadline: str) -> str | None:
+    """deadline 문자열에서 날짜 부분(YYYY-MM-DD)만 추출. 파싱 불가 시 None."""
+    m = re.match(r"(\d{4}-\d{2}-\d{2})", (deadline or "").strip())
+    return m.group(1) if m else None
+
+
+def _info_score(item: dict) -> int:
+    """항목의 정보량 점수 — 높을수록 캘린더에 남길 우선 후보."""
+    score = 0
+    deadline = str(item.get("deadline") or "")
+    # 정확한 마감 시각(날짜+시각) 포함 여부
+    if "T" in deadline or (len(deadline) > 10 and ":" in deadline):
+        score += 2
+    # 시험 장소
+    if item.get("exam_location"):
+        score += 2
+    # 시험 시각
+    if item.get("exam_time"):
+        score += 2
+    # 공지 본문 등 추가 설명
+    if len(str(item.get("description_extra") or "")) > 50:
+        score += 1
+    return score
+
+
+def _dedup_fresh(fresh: list[dict]) -> list[dict]:
+    """(subject, deadline_date) 기준 중복 제거 — 정보량 점수 높은 항목 우선 유지."""
+    keyed: dict[tuple[str, str], dict] = {}
+    no_date: list[dict] = []
+    for item in fresh:
+        date = _normalize_deadline_date(str(item.get("deadline") or ""))
+        if not date:
+            no_date.append(item)
+            continue
+        key = (str(item.get("subject") or ""), date)
+        if key not in keyed or _info_score(item) > _info_score(keyed[key]):
+            if key in keyed:
+                logger.info(
+                    "[canvas_sync] dedup: '%s' (%s) → '%s' (%s) 로 교체 (점수 %d→%d)",
+                    keyed[key].get("title", "")[:30], keyed[key].get("activity_type"),
+                    item.get("title", "")[:30], item.get("activity_type"),
+                    _info_score(keyed[key]), _info_score(item),
+                )
+            keyed[key] = item
+        else:
+            logger.info(
+                "[canvas_sync] dedup: '%s' (%s) 중복 제거 — '%s' (%s) 유지",
+                item.get("title", "")[:30], item.get("activity_type"),
+                keyed[key].get("title", "")[:30], keyed[key].get("activity_type"),
+            )
+    return list(keyed.values()) + no_date
+
+
 def _canvas_html_to_plain(html: Any, limit: int = 6000) -> str:
     if html is None or not isinstance(html, str):
         return ""
@@ -365,6 +418,12 @@ def run_canvas_server_sync(db: Session, user: User, settings: Settings) -> SyncR
                 ann_n += 1
             else:
                 logger.info("[canvas_sync] Claude: 시험/마감 아님, 스킵 → %s", title[:50])
+
+    # 동일 (subject, deadline_date) 중복 제거 — 정보량 많은 항목 우선
+    before = len(fresh)
+    fresh = _dedup_fresh(fresh)
+    if len(fresh) < before:
+        logger.info("[canvas_sync] dedup: %d건 → %d건 (중복 %d건 제거)", before, len(fresh), before - len(fresh))
 
     set_progress(uid, running=True, phase="캘린더에 반영 중…", course_index=total, course_total=total, course_name="")
 
