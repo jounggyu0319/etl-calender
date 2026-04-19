@@ -110,9 +110,12 @@
     return null;
   }
 
-  /** 본문 평문에 "N월 N일" 형태 날짜가 있으면 true */
+  /** 본문 평문에 날짜 힌트가 있으면 true (한국어 "N월 N일" 또는 영어 "April 22nd" 등) */
   function bodyHasDateHint(plainText) {
-    return /\d{1,2}월\s*\d{1,2}일/.test(plainText);
+    if (/\d{1,2}월\s*\d{1,2}일/.test(plainText)) return true;
+    if (/(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}/i.test(plainText)) return true;
+    if (/\d{1,2}\s+(january|february|march|april|may|june|july|august|september|october|november|december)/i.test(plainText)) return true;
+    return false;
   }
 
   /**
@@ -302,8 +305,9 @@
         // 본문에서 날짜 추출 시도 — 서버 parse_deadline()이 "4월 23일" 등을 인식
         const bodyText = stripHtml(topic.message || "");
         // 본문에 날짜도 없고, 제목에 "일정/안내/공지/날짜" 같은 명확한 일정어도 없으면 스킵
-        const scheduleWords = ["일정", "안내", "공지", "날짜", "시간", "장소", "변경", "연기"];
-        const titleHasScheduleWord = scheduleWords.some((k) => title.includes(k));
+        const scheduleWords = ["일정", "안내", "공지", "날짜", "시간", "장소", "변경", "연기",
+          "date", "time", "schedule", "when", "location", "room", "venue", "place"];
+        const titleHasScheduleWord = scheduleWords.some((k) => title.toLowerCase().includes(k.toLowerCase()));
         if (!bodyHasDateHint(bodyText) && !titleHasScheduleWord) continue;
 
         items.push({

@@ -110,7 +110,7 @@ def parse_deadline(deadline_text: str | None) -> dict | None:
 
     m_en_short = re.search(
         r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+"
-        r"(\d{1,2})(?:,?\s*(\d{4}))?\b",
+        r"(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(\d{4}))?\b",
         text, re.I,
     )
     if m_en_short:

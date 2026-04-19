@@ -9,6 +9,7 @@ Google 일정 중복 방지는 `calendar_service.insert_assignment_calendar_if_a
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -72,6 +73,27 @@ def import_from_client(
             row["color_id"] = user.exam_color_id or "11"
         else:
             row["color_id"] = user.assign_color_id or "9"
+        # 마감일이 현재 시각보다 과거면 skip
+        dl = (d.get("deadline") or "").strip()
+        if dl:
+            from calendar_service import parse_deadline
+            parsed = parse_deadline(dl)
+            if parsed:
+                SEOUL = timezone(timedelta(hours=9))
+                now = datetime.now(SEOUL)
+                if "dateTime" in parsed:
+                    deadline_dt = datetime.fromisoformat(parsed["dateTime"])
+                    if deadline_dt.tzinfo is None:
+                        deadline_dt = deadline_dt.replace(tzinfo=SEOUL)
+                    if deadline_dt < now:
+                        _LOG.debug("과거 마감일 스킵: %s (%s)", row["title"][:40], dl)
+                        continue
+                elif "date" in parsed:
+                    from datetime import date as _date
+                    deadline_date = _date.fromisoformat(parsed["date"])
+                    if deadline_date < now.date():
+                        _LOG.debug("과거 마감일 스킵: %s (%s)", row["title"][:40], dl)
+                        continue
         fresh.append(row)
 
     assign_n = sum(1 for x in fresh if x.get("activity_type") == "assign")
