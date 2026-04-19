@@ -21,6 +21,7 @@ class UserOut(BaseModel):
     exam_color_id: str = "11"
     auto_sync_enabled: bool = False
     last_auto_sync_at: datetime | None = None
+    auto_sync_interval_hours: int = 24
 
 
 class Token(BaseModel):

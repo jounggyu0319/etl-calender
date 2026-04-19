@@ -273,10 +273,13 @@
               <div id="exam-color-picker" class="flex flex-wrap gap-2"></div>
             </div>
           </div>
-          <button type="button" id="btn-save-color-settings"
-            class="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 sm:w-auto">
-            색상 저장
-          </button>
+          <div class="mt-3 flex flex-wrap items-center gap-3">
+            <button type="button" id="btn-save-color-settings"
+              class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 sm:w-auto">
+              색상 저장
+            </button>
+            <span id="color-save-status" class="hidden text-xs font-medium text-emerald-600">✓ 저장되었습니다</span>
+          </div>
         </div>
       </div>
 
@@ -765,8 +768,16 @@
 
         const lastAuto = me.last_auto_sync_at;
         const lastStr = lastAuto ? formatKSTShort(lastAuto) : "";
-        $("auto-sync-last").textContent =
-          "마지막 자동 동기화: " + (lastStr || "—");
+        const intervalHours = me.auto_sync_interval_hours || 24;
+        let autoSyncText = "마지막 자동 동기화: " + (lastStr || "—");
+        if (me.auto_sync_enabled && lastAuto) {
+          const nextMs = new Date(lastAuto).getTime() + intervalHours * 3600 * 1000;
+          const nextStr = formatKSTShort(new Date(nextMs).toISOString());
+          autoSyncText += "  ·  다음 예정: " + nextStr;
+        } else if (me.auto_sync_enabled && !lastAuto) {
+          autoSyncText += "  ·  다음 예정: 약 1시간 이내";
+        }
+        $("auto-sync-last").textContent = autoSyncText;
         _renderAutoHistBtn(lastAuto);
         $("auto-sync-toggle").checked = !!me.auto_sync_enabled;
         const autoNeed = !me.has_google || !me.has_moodle_calendar_feed;
@@ -904,6 +915,8 @@
 
     $("btn-save-color-settings").onclick = async () => {
       hideBanner();
+      const statusEl = $("color-save-status");
+      statusEl.classList.add("hidden");
       try {
         await api("/api/me/color-settings", {
           method: "PATCH",
@@ -913,9 +926,14 @@
             exam_color_id: selectedExamColorId,
           }),
         });
-        showBanner("ok", "캘린더 색상을 저장했습니다.");
+        statusEl.textContent = "✓ 저장되었습니다";
+        statusEl.className = "text-xs font-medium text-emerald-600";
+        setTimeout(() => statusEl.classList.add("hidden"), 3000);
         await refreshMe();
       } catch (e) {
+        statusEl.textContent = "저장 실패";
+        statusEl.className = "text-xs font-medium text-red-500";
+        setTimeout(() => statusEl.classList.add("hidden"), 3000);
         showBanner("err", toFriendlyError(e));
       }
     };
