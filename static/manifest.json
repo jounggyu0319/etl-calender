@@ -1,12 +1,26 @@
 {
   "name": "eTL → 내 캘린더",
-  "short_name": "eTL출구",
+  "short_name": "eTL캘린더",
   "description": "myetl 일정을 eTL 안이 아니라 Google 캘린더로 옮겨 주는 웹 서비스입니다.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#0f1115",
-  "theme_color": "#171a21",
-  "lang": "ko"
+  "background_color": "#003876",
+  "theme_color": "#003876",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }
