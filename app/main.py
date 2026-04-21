@@ -96,6 +96,16 @@ async def serve_dashboard():
     return FileResponse(BASE_DIR / "static" / "index.html")
 
 
+@app.get("/privacy")
+async def serve_privacy():
+    return FileResponse(BASE_DIR / "static" / "privacy.html")
+
+
+@app.get("/terms")
+async def serve_terms():
+    return FileResponse(BASE_DIR / "static" / "terms.html")
+
+
 @app.get("/sw.js")
 async def service_worker():
     """PWA: 루트 scope로 등록하려면 Service-Worker-Allowed가 필요합니다."""

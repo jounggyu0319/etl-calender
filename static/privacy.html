@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>개인정보처리방침 — eTL Calendar Sync</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f8fafc; color: #1e293b; line-height: 1.7; }
+    header { background: #1a56db; color: white; padding: 24px 0; text-align: center; }
+    header h1 { font-size: 1.6rem; font-weight: 700; }
+    header p  { font-size: 0.9rem; opacity: .8; margin-top: 4px; }
+    main { max-width: 760px; margin: 40px auto; padding: 0 20px 60px; }
+    h2 { font-size: 1.1rem; font-weight: 700; margin: 32px 0 10px; color: #1a56db; }
+    p, li { font-size: 0.95rem; color: #334155; margin-bottom: 8px; }
+    ul { padding-left: 20px; margin-bottom: 8px; }
+    .card { background: white; border-radius: 12px; padding: 28px 32px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .updated { font-size: 0.82rem; color: #94a3b8; margin-bottom: 20px; }
+    footer { text-align: center; font-size: 0.82rem; color: #94a3b8; padding-bottom: 40px; }
+    a { color: #1a56db; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>eTL Calendar Sync</h1>
+  <p>개인정보처리방침</p>
+</header>
+<main>
+  <div class="card">
+    <p class="updated">최종 업데이트: 2026년 4월 21일</p>
+
+    <p>eTL Calendar Sync(이하 "서비스")는 서울대학교 eTL(Moodle 기반 LMS)의 과제·일정을 Google 캘린더와 동기화하는 개인 프로젝트입니다. 본 방침은 서비스 이용 시 수집·이용되는 개인정보에 대해 안내합니다.</p>
+
+    <h2>1. 수집하는 정보</h2>
+    <ul>
+      <li><strong>Google 계정 정보:</strong> OAuth 2.0 인증을 통해 이름, 이메일 주소, Google 캘린더 접근 토큰을 수집합니다.</li>
+      <li><strong>eTL/Canvas 정보:</strong> 사용자가 직접 입력한 eTL iCal URL 또는 Canvas API 토큰을 저장합니다.</li>
+      <li><strong>동기화 이력:</strong> 동기화 실행 시각 및 결과(성공/실패)를 로그로 저장합니다.</li>
+    </ul>
+
+    <h2>2. 정보의 이용 목적</h2>
+    <ul>
+      <li>Google 캘린더에 eTL 과제·일정 이벤트를 생성·업데이트하기 위해 사용합니다.</li>
+      <li>자동 동기화 기능 실행을 위해 인증 토큰을 저장합니다.</li>
+      <li>서비스 품질 개선 및 오류 진단 목적으로 로그를 활용합니다.</li>
+    </ul>
+
+    <h2>3. 정보의 보관 및 보호</h2>
+    <ul>
+      <li>인증 토큰 등 민감 정보는 암호화하여 데이터베이스에 저장합니다.</li>
+      <li>제3자에게 개인정보를 판매하거나 제공하지 않습니다.</li>
+      <li>서비스 탈퇴 시 관련 데이터를 즉시 삭제합니다.</li>
+    </ul>
+
+    <h2>4. Google API 사용 범위</h2>
+    <p>본 서비스는 Google Calendar API를 통해 캘린더 이벤트를 읽고 쓰는 권한(<code>https://www.googleapis.com/auth/calendar</code>)을 요청합니다. 이 권한은 eTL 일정을 동기화하는 목적에만 사용됩니다.</p>
+    <p>본 서비스의 Google API 사용은 <a href="https://policies.google.com/privacy" target="_blank">Google 개인정보처리방침</a> 및 <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank">Google API 서비스 사용자 데이터 정책</a>을 준수합니다.</p>
+
+    <h2>5. 사용자 권리</h2>
+    <ul>
+      <li>언제든지 서비스 내 설정에서 Google 계정 연동을 해제할 수 있습니다.</li>
+      <li>계정 삭제 및 데이터 삭제 요청은 아래 이메일로 문의하세요.</li>
+    </ul>
+
+    <h2>6. 문의</h2>
+    <p>개인정보 관련 문의: <a href="mailto:jounggyushin@gmail.com">jounggyushin@gmail.com</a></p>
+  </div>
+</main>
+<footer>
+  <p>© 2026 eTL Calendar Sync · <a href="/terms">서비스 약관</a></p>
+</footer>
+</body>
+</html>
