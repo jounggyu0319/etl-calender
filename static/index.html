@@ -57,14 +57,29 @@
     <div class="absolute bottom-0 right-0 h-64 w-64 rounded-full bg-snu/5 blur-3xl"></div>
   </div>
 
+  <nav class="border-b border-slate-200/70 bg-white/70 backdrop-blur" aria-label="사이트 헤더">
+    <div class="mx-auto flex max-w-lg items-center justify-between gap-3 px-4 py-3 sm:max-w-xl sm:px-6">
+      <a href="/" class="flex items-center gap-2">
+        <img src="/static/icons/icon-192.png" alt="eTL Calendar Sync 로고" class="h-7 w-7 rounded-md" />
+        <span class="text-[15px] font-bold tracking-tight text-slate-900">eTL Calendar Sync</span>
+      </a>
+      <div class="flex items-center gap-3 text-xs font-medium text-slate-600 sm:text-sm">
+        <a href="/privacy" class="hover:text-snu hover:underline">개인정보처리방침</a>
+        <span class="text-slate-300">·</span>
+        <a href="/terms" class="hover:text-snu hover:underline">서비스 약관</a>
+      </div>
+    </div>
+  </nav>
+
   <main class="mx-auto max-w-lg px-4 pt-8 sm:max-w-xl sm:px-6 sm:pt-12">
     <header class="mb-8 text-left sm:mb-10">
-      <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-snu/80">SNU · eTL → Google Calendar</p>
+      <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-snu/80">eTL Calendar Sync · SNU eTL → Google Calendar</p>
       <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-        과제·일정, 캘린더에 <span class="text-snu">자동으로</span>
+        eTL Calendar Sync — 과제·일정, 캘린더에 <span class="text-snu">자동으로</span>
       </h1>
       <p class="mt-3 max-w-xl text-[15px] leading-relaxed text-slate-600 sm:text-base">
-        eTL에 올라온 과제·퀴즈·일정을 <strong class="font-semibold text-slate-800">Google 캘린더</strong>에 맞춰 두면 매일 한 번에 동기화할 수 있어요.
+        <strong class="font-semibold text-slate-800">eTL Calendar Sync</strong>는 eTL에 올라온 과제·퀴즈·일정을 <strong class="font-semibold text-slate-800">Google 캘린더</strong>에 맞춰 두면 매일 한 번에 동기화해 드려요.
+        서비스를 사용하시기 전에 <a href="/privacy" class="font-medium text-snu underline decoration-snu/40 underline-offset-2 hover:decoration-snu">개인정보처리방침</a>을 꼭 확인해 주세요.
       </p>
     </header>
 
@@ -419,9 +434,15 @@
       </div>
     </section>
 
-    <footer class="mt-6 pb-6 text-center text-xs leading-relaxed text-slate-400 sm:text-left">
-      <span class="font-medium text-slate-500">eTL Calendar Sync</span> · myetl·Google은 각 서비스 약관을 따릅니다. 이 페이지는 일정을 옮기는 보조 도구입니다.<br />
-      <a href="/privacy" class="underline hover:text-slate-500">개인정보처리방침</a> · <a href="/terms" class="underline hover:text-slate-500">서비스 약관</a>
+    <footer class="mt-8 border-t border-slate-200 pb-8 pt-6 text-center text-sm leading-relaxed text-slate-600 sm:text-left">
+      <p class="mb-2">
+        <span class="font-semibold text-slate-800">eTL Calendar Sync</span> · myetl·Google은 각 서비스 약관을 따릅니다. 이 페이지는 일정을 옮기는 보조 도구입니다.
+      </p>
+      <p class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:justify-start">
+        <a href="/privacy" class="font-medium text-snu underline decoration-snu/40 underline-offset-2 hover:decoration-snu">개인정보처리방침</a>
+        <span class="text-slate-300">·</span>
+        <a href="/terms" class="font-medium text-snu underline decoration-snu/40 underline-offset-2 hover:decoration-snu">서비스 약관</a>
+      </p>
     </footer>
   </main>
 
