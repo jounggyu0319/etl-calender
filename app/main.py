@@ -96,6 +96,11 @@ async def serve_dashboard():
     return FileResponse(BASE_DIR / "static" / "index.html")
 
 
+@app.get("/google6613324f44353041.html")
+async def google_site_verification():
+    return FileResponse(BASE_DIR / "static" / "google6613324f44353041.html")
+
+
 @app.get("/privacy")
 async def serve_privacy():
     return FileResponse(BASE_DIR / "static" / "privacy.html")
