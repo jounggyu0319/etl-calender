@@ -1,6 +1,13 @@
 """
 Moodle(eTL) 캘린더 «보내기» 구독 URL에서 ICS를 받아 Google 캘린더용 항목으로 변환.
 파싱은 `icalendar` 라이브러리의 Calendar.from_ical → VEVENT 의 SUMMARY, DTSTART 등을 사용합니다.
+
+activity_type 분류:
+  - "assign"      : 과제·제출·보고서 등 직접 수행해야 하는 항목 (기존 코드와 일치)
+  - "exam"        : 시험·퀴즈·평가
+  - "presentation": 발표
+  - "notice"      : 출결·안내·공지 등 — 기본적으로 동기화 제외
+  - "ical_feed"   : 위 어디에도 해당 없는 일반 이벤트
 """
 
 from __future__ import annotations
@@ -20,6 +27,84 @@ ALLOWED_FEED_HOSTS = frozenset({"myetl.snu.ac.kr"})
 _MAX_EVENTS = 400
 _UA = "Mozilla/5.0 (compatible; eTL-Calendar-Sync/1.0)"
 
+# ──────────────────────────────────────────────
+# 이벤트 분류 키워드 (SUMMARY + DESCRIPTION 대상)
+# 우선순위: notice 먼저 걸러낸 뒤 exam → presentation → assignment 순 판단
+# ──────────────────────────────────────────────
+
+# notice: 캘린더 등록 불필요한 공지/안내성 이벤트
+_NOTICE_KW = re.compile(
+    r"(출결|출석\s*현황|지정\s*좌석|좌석\s*배정|공지|안내|현황\s*공지"
+    r"|수강\s*신청|휴강|보강|강의\s*계획|오리엔테이션|OT\b)",
+    re.IGNORECASE,
+)
+
+# exam: 시험·평가
+_EXAM_KW = re.compile(
+    r"(시험|exam|test\b|중간\s*고사|기말\s*고사|중간\s*평가|기말\s*평가"
+    r"|quiz|퀴즈|쪽지\s*시험|실기\s*시험|온라인\s*시험)",
+    re.IGNORECASE,
+)
+
+# presentation: 발표
+_PRESENTATION_KW = re.compile(
+    r"(발표|presentation|프레젠테이션|발표\s*자료|발표\s*파일)",
+    re.IGNORECASE,
+)
+
+# assignment: 과제·제출
+_ASSIGNMENT_KW = re.compile(
+    r"(과제|제출|assignment|homework|레포트|보고서|리포트|report\b"
+    r"|실습|프로젝트\s*제출|프로젝트\s*보고)",
+    re.IGNORECASE,
+)
+
+
+def classify_activity_type(summary: str, description: str = "") -> str:
+    """
+    SUMMARY + DESCRIPTION 텍스트를 분석해 activity_type 반환.
+
+    반환값:
+        "notice"       — 공지/안내성, 동기화 제외 권장
+        "exam"         — 시험/퀴즈
+        "presentation" — 발표
+        "assign"       — 과제/제출 (canvas_sync, client_sync 등 기존 코드와 일치)
+        "ical_feed"    — 분류 불가 일반 이벤트
+    """
+    text = f"{summary} {description}"
+
+    # notice는 먼저 확인 — 다른 키워드가 섞여 있어도 공지면 공지로 처리
+    if _NOTICE_KW.search(text):
+        return "notice"
+    if _EXAM_KW.search(text):
+        return "exam"
+    if _PRESENTATION_KW.search(text):
+        return "presentation"
+    if _ASSIGNMENT_KW.search(text):
+        return "assign"
+    return "ical_feed"
+
+
+# ──────────────────────────────────────────────
+# Google 캘린더 색상 ID 매핑
+# https://developers.google.com/calendar/api/v3/reference/colors/list
+# ──────────────────────────────────────────────
+_COLOR_BY_TYPE: dict[str, str] = {
+    "assign":       "6",   # Tangerine (주황) — canvas_sync/client_sync와 동일 키
+    "exam":         "11",  # Tomato (빨강)
+    "presentation": "9",   # Blueberry (남색)
+    "notice":       "8",   # Graphite (회색) — 동기화 시 참고용
+    "ical_feed":    "2",   # Sage (연두)
+}
+
+
+def get_color_id_for_type(activity_type: str) -> str:
+    return _COLOR_BY_TYPE.get(activity_type, "2")
+
+
+# ──────────────────────────────────────────────
+# URL 유효성 검사 및 fetch
+# ──────────────────────────────────────────────
 
 def normalize_calendar_feed_url(raw: str) -> str:
     """webcal:// → https://, http:// → https://."""
@@ -27,7 +112,7 @@ def normalize_calendar_feed_url(raw: str) -> str:
     if u.lower().startswith("webcal://"):
         u = "https://" + u[9:]
     elif u.startswith("http://"):
-        u = "https://" + u[len("http://") :]
+        u = "https://" + u[len("http://"):]
     return u
 
 
@@ -152,6 +237,10 @@ def fetch_moodle_calendar_ics(url: str, timeout: int = 10) -> str:
     raise ValueError("iCal URL을 처리할 수 없습니다.")
 
 
+# ──────────────────────────────────────────────
+# ICS 파싱
+# ──────────────────────────────────────────────
+
 def _decode_ical_text(val) -> str:
     if val is None:
         return ""
@@ -182,8 +271,23 @@ def _first_url_in_text(blob: str) -> str:
     return m.group(0) if m else ""
 
 
-def ical_to_assignment_items(ics_text: str) -> list[dict]:
-    """VEVENT → add_assignment_to_calendar (icalendar: SUMMARY, DTSTART, DESCRIPTION, URL 등)."""
+def ical_to_assignment_items(
+    ics_text: str,
+    include_notices: bool = False,
+) -> list[dict]:
+    """
+    VEVENT → Google 캘린더용 항목 리스트 변환.
+
+    Args:
+        ics_text: ICS 원문
+        include_notices: True이면 activity_type="notice" 항목도 포함.
+                         기본값 False — 공지/안내 이벤트는 제외.
+
+    Returns:
+        각 항목 dict:
+            id, title, subject, url, activity_type, color_id, deadline
+            (description_extra: 있을 때만)
+    """
     try:
         cal = Calendar.from_ical(ics_text)
     except Exception as e:
@@ -193,7 +297,9 @@ def ical_to_assignment_items(ics_text: str) -> list[dict]:
     vevent_count = 0
     skipped_rrule = 0
     skipped_no_dtstart = 0
+    skipped_notice = 0
     out: list[dict] = []
+
     for ev in cal.walk():
         if ev.name != "VEVENT":
             continue
@@ -211,6 +317,14 @@ def ical_to_assignment_items(ics_text: str) -> list[dict]:
         deadline = _dtstart_as_deadline_str(ev)
         if not deadline:
             skipped_no_dtstart += 1
+            continue
+
+        # ── 이벤트 유형 분류 ──
+        activity_type = classify_activity_type(summary, desc)
+
+        if activity_type == "notice" and not include_notices:
+            skipped_notice += 1
+            logger.debug("[iCal] 공지 제외: %r", summary[:80])
             continue
 
         dtend_raw = ev.get("dtend")
@@ -244,37 +358,45 @@ def ical_to_assignment_items(ics_text: str) -> list[dict]:
             "title": summary[:500],
             "subject": subj,
             "url": link[:2000],
-            "activity_type": "ical_feed",
+            "activity_type": activity_type,
+            "color_id": get_color_id_for_type(activity_type),
             "deadline": deadline,
         }
         desc_plain = str(desc or "").strip()
         if desc_plain:
             row["description_extra"] = desc_plain[:7000]
         out.append(row)
+
         if len(out) <= 3:
             logger.info(
-                "[iCal] 샘플 이벤트(icalendar): SUMMARY=%r DTSTART=%r DTEND=%r DESCRIPTION_앞50자=%r",
+                "[iCal] 샘플 이벤트: SUMMARY=%r TYPE=%r DTSTART=%r DTEND=%r DESC앞50자=%r",
                 summary[:80],
+                activity_type,
                 deadline,
                 dtend_str,
                 (desc or "")[:50],
             )
             print(
-                f"[iCal] 샘플 #{len(out)} SUMMARY={summary[:60]!r} DTSTART={deadline!r} DTEND={dtend_str!r}",
+                f"[iCal] 샘플 #{len(out)} SUMMARY={summary[:60]!r} TYPE={activity_type!r} "
+                f"DTSTART={deadline!r} DTEND={dtend_str!r}",
                 flush=True,
             )
+
         if len(out) >= _MAX_EVENTS:
             break
 
     logger.info(
-        "[iCal] 파싱: VEVENT 총 %d개 → 사용 %d개 (RRULE 제외 %d, DTSTART 없음 %d)",
+        "[iCal] 파싱: VEVENT 총 %d개 → 사용 %d개 "
+        "(RRULE 제외 %d, DTSTART 없음 %d, 공지 제외 %d)",
         vevent_count,
         len(out),
         skipped_rrule,
         skipped_no_dtstart,
+        skipped_notice,
     )
     print(
-        f"[iCal] 파싱된 이벤트(일정) 개수: {len(out)} (VEVENT {vevent_count}개 중)",
+        f"[iCal] 파싱된 이벤트 수: {len(out)} "
+        f"(VEVENT {vevent_count}개 중 / 공지 {skipped_notice}개 제외)",
         flush=True,
     )
     if not out and (ics_text or "").strip():
