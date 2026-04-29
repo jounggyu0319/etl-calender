@@ -17,11 +17,14 @@ import logging
 import re
 from datetime import date, datetime, timezone
 from urllib.parse import urlparse, urlunparse
+from zoneinfo import ZoneInfo
 
 import requests
 from icalendar import Calendar
 
 logger = logging.getLogger(__name__)
+
+_KST = ZoneInfo("Asia/Seoul")
 
 ALLOWED_FEED_HOSTS = frozenset({"myetl.snu.ac.kr"})
 _MAX_EVENTS = 400
@@ -249,6 +252,25 @@ def _decode_ical_text(val) -> str:
     return str(val)
 
 
+def _dtstart_date_kst(component) -> date | None:
+    """DTSTART를 Asia/Seoul 기준 달력 날짜로 변환. 없거나 파싱 불가면 None."""
+    dt = component.get("dtstart")
+    if dt is None:
+        return None
+    try:
+        v = dt.dt
+    except Exception:
+        return None
+    # datetime은 date의 서브클래스이므로 datetime을 먼저 검사
+    if isinstance(v, datetime):
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        return v.astimezone(_KST).date()
+    if isinstance(v, date):
+        return v
+    return None
+
+
 def _dtstart_as_deadline_str(component) -> str | None:
     dt = component.get("dtstart")
     if dt is None:
@@ -297,8 +319,10 @@ def ical_to_assignment_items(
     vevent_count = 0
     skipped_rrule = 0
     skipped_no_dtstart = 0
+    skipped_before_today = 0
     skipped_notice = 0
     out: list[dict] = []
+    today_kst = datetime.now(_KST).date()
 
     for ev in cal.walk():
         if ev.name != "VEVENT":
@@ -313,6 +337,14 @@ def ical_to_assignment_items(
         loc = _decode_ical_text(ev.get("location"))
         url_field = _decode_ical_text(ev.get("url")).strip()
         link = url_field or _first_url_in_text(desc) or ""
+
+        start_date_kst = _dtstart_date_kst(ev)
+        if start_date_kst is None:
+            skipped_no_dtstart += 1
+            continue
+        if start_date_kst < today_kst:
+            skipped_before_today += 1
+            continue
 
         deadline = _dtstart_as_deadline_str(ev)
         if not deadline:
@@ -387,16 +419,17 @@ def ical_to_assignment_items(
 
     logger.info(
         "[iCal] 파싱: VEVENT 총 %d개 → 사용 %d개 "
-        "(RRULE 제외 %d, DTSTART 없음 %d, 공지 제외 %d)",
+        "(RRULE 제외 %d, DTSTART 없음 %d, 오늘 이전(KST) 제외 %d, 공지 제외 %d)",
         vevent_count,
         len(out),
         skipped_rrule,
         skipped_no_dtstart,
+        skipped_before_today,
         skipped_notice,
     )
     print(
         f"[iCal] 파싱된 이벤트 수: {len(out)} "
-        f"(VEVENT {vevent_count}개 중 / 공지 {skipped_notice}개 제외)",
+        f"(VEVENT {vevent_count}개 중 / 과거(KST) {skipped_before_today}개 제외 / 공지 {skipped_notice}개 제외)",
         flush=True,
     )
     if not out and (ics_text or "").strip():
