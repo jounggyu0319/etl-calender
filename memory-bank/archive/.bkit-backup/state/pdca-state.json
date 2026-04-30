@@ -1,0 +1,68 @@
+{
+  "version": "2.1.4",
+  "project": "etl-calendar",
+  "activeFeature": "auto-sync",
+  "phase": "check",
+  "iteration": 3,
+  "lastUpdated": "2026-04-15",
+  "features": {
+    "etl-extension-no2fa": {
+      "phase": "act",
+      "status": "done",
+      "gapAnalysis": {
+        "passed": [
+          "background.js service worker",
+          "아이콘 PNG 3종 유효",
+          "manifest.json 구조",
+          "메시지 타입 일관성 (MYETL_PROGRESS)",
+          "Electron WebView persist 세션",
+          "Google OAuth 연동 완료",
+          "CRYPTO_KEY Fernet 검증",
+          "iCal /feeds/ 경로 허용",
+          "refreshMe 배너 덮어쓰기 버그 수정",
+          "404 페이지 graceful 처리, 빈 items 허용 전송"
+        ],
+        "pending": []
+      }
+    },
+    "db-persistence": {
+      "phase": "act",
+      "status": "done",
+      "planDoc": "docs/01-plan/features/db-persistence.plan.md",
+      "problem": "Render 재배포마다 SQLite DB 초기화 → 사용자 계정·Google 토큰 소실",
+      "solution": "Render 무료 PostgreSQL 연결",
+      "tasks": []
+    },
+    "product-vision": {
+      "phase": "plan",
+      "status": "planned",
+      "vision": "확장 프로그램 없는 순수 웹/앱 서비스",
+      "roadmap": {
+        "free": "iCal URL 기반 자동 동기화 — 설정 간단, 마감일 있는 항목",
+        "pro": "Canvas API 토큰 기반 — 과제·퀴즈·공지 전체, 더 빠른 주기, 소액 결제",
+        "mobile": "PWA 또는 네이티브 앱 — 서버 사이드라 클라이언트 무관"
+      },
+      "notes": [
+        "myetl.snu.ac.kr은 Canvas LMS (Moodle 아님)",
+        "Canvas API 토큰: /profile/settings → 새 액세스 토큰 생성 가능 확인",
+        "models.py에 plan: free|pro 필드 및 Stripe 연동 준비 이미 존재",
+        "확장 프로그램은 과도기 수단 — 장기적으로 제거 예정"
+      ]
+    },
+    "auto-sync": {
+      "phase": "check",
+      "status": "in_progress",
+      "problem": "사용자가 수동으로 동기화해야 함 → 서버 스케줄러로 자동화, 사용자 토글로 on/off",
+      "solution": "APScheduler 1h 주기 + PATCH /api/me/auto-sync + UI 토글",
+      "tasks": [
+        "✅ models.py: auto_sync_enabled / interval_hours / last_auto_sync_at",
+        "✅ db.py: ALTER TABLE 자동 마이그레이션 (SQLite·PostgreSQL)",
+        "✅ services/auto_sync.py: 유저별 iCal→Google 스케줄러",
+        "✅ main.py: BackgroundScheduler lifespan 등록",
+        "✅ routers/me.py: PATCH /api/me/auto-sync",
+        "✅ static/index.html: 토글 UI + 마지막 실행 시각",
+        "⬜ 배포 후 E2E 검증: 토글 → DB 저장 → 스케줄러 실행 확인"
+      ]
+    }
+  }
+}
