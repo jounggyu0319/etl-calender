@@ -364,44 +364,52 @@
           이메일로 보내기
         </button>
       </div>
-    </section>
 
-    <!-- PWA 설치 가이드 (로그인 후) -->
-    <section class="rounded-2xl border border-slate-200/80 bg-white shadow-card overflow-hidden">
-      <button type="button" id="btn-pwa-toggle-2"
-        class="flex w-full items-center justify-between px-5 py-4 text-left"
-        aria-expanded="false" aria-controls="pwa-guide-2">
-        <span class="text-sm font-semibold text-slate-800">📲 앱처럼 설치하는 방법</span>
-        <span id="pwa-toggle-icon-2" class="text-slate-400 transition-transform duration-200">▼</span>
-      </button>
-      <div id="pwa-guide-2" class="hidden border-t border-slate-100 px-5 pb-5 pt-4">
-        <div class="grid gap-3 sm:grid-cols-3">
-          <div class="rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <p class="mb-1.5 text-xs font-semibold text-slate-700">🍎 iPhone / iPad</p>
-            <ol class="list-decimal space-y-1 pl-4 text-xs text-slate-500 leading-relaxed">
-              <li>Safari에서 이 페이지 열기</li>
-              <li>하단 <strong class="text-slate-700">공유(↑)</strong> 버튼 탭</li>
-              <li><strong class="text-slate-700">홈 화면에 추가</strong> 선택</li>
-              <li>추가 → 홈 화면에 앱 아이콘 생성</li>
-            </ol>
-          </div>
-          <div class="rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <p class="mb-1.5 text-xs font-semibold text-slate-700">🤖 Android</p>
-            <ol class="list-decimal space-y-1 pl-4 text-xs text-slate-500 leading-relaxed">
-              <li>Chrome에서 이 페이지 열기</li>
-              <li>주소창 오른쪽 <strong class="text-slate-700">⋮ 메뉴</strong> 탭</li>
-              <li><strong class="text-slate-700">홈 화면에 추가</strong> 선택</li>
-              <li>추가 → 홈 화면에 앱 아이콘 생성</li>
-            </ol>
-          </div>
-          <div class="rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <p class="mb-1.5 text-xs font-semibold text-slate-700">💻 Mac (Safari)</p>
-            <ol class="list-decimal space-y-1 pl-4 text-xs text-slate-500 leading-relaxed">
-              <li>Safari에서 이 페이지 열기</li>
-              <li>상단 메뉴 <strong class="text-slate-700">파일</strong> 클릭</li>
-              <li><strong class="text-slate-700">독에 추가</strong> 선택</li>
-              <li>독에 앱 아이콘 생성</li>
-            </ol>
+      <!-- 다른 캘린더 앱에서 보기 -->
+      <div class="rounded-2xl border border-slate-200/80 bg-white shadow-card overflow-hidden">
+        <button type="button" id="btn-other-cal-toggle"
+          class="flex w-full items-center justify-between px-5 py-4 text-left"
+          aria-expanded="false" aria-controls="other-cal-guide">
+          <span class="text-sm font-semibold text-slate-800">📱 iPhone·Mac·Outlook에서 보기</span>
+          <span id="other-cal-toggle-icon" class="text-slate-400 transition-transform duration-200">▼</span>
+        </button>
+        <div id="other-cal-guide" class="hidden border-t border-slate-100 px-5 pb-5 pt-4">
+          <p class="mb-3 text-xs text-slate-500">동기화된 일정은 Google 캘린더에 저장됩니다. 아래 방법으로 다른 앱에서도 확인할 수 있어요.</p>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <div class="rounded-xl border border-slate-100 bg-slate-50 p-3">
+              <p class="mb-1.5 text-xs font-semibold text-slate-700">🍎 iPhone / iPad</p>
+              <ol class="list-decimal space-y-1 pl-4 text-xs text-slate-500 leading-relaxed">
+                <li><strong class="text-slate-700">설정</strong> 앱 열기</li>
+                <li><strong class="text-slate-700">캘린더 → 계정 → 계정 추가</strong></li>
+                <li><strong class="text-slate-700">Google</strong> 선택 후 로그인</li>
+                <li>기본 캘린더 앱에서 일정 확인</li>
+              </ol>
+            </div>
+            <div class="rounded-xl border border-slate-100 bg-slate-50 p-3">
+              <p class="mb-1.5 text-xs font-semibold text-slate-700">💻 Mac (캘린더 앱)</p>
+              <ol class="list-decimal space-y-1 pl-4 text-xs text-slate-500 leading-relaxed">
+                <li><strong class="text-slate-700">시스템 설정 → 인터넷 계정</strong></li>
+                <li><strong class="text-slate-700">Google</strong> 추가 후 로그인</li>
+                <li><strong class="text-slate-700">캘린더</strong> 항목 체크</li>
+                <li>Mac 캘린더 앱에서 일정 확인</li>
+              </ol>
+            </div>
+            <div class="rounded-xl border border-slate-100 bg-slate-50 p-3">
+              <p class="mb-1.5 text-xs font-semibold text-slate-700">📧 Outlook (데스크톱)</p>
+              <ol class="list-decimal space-y-1 pl-4 text-xs text-slate-500 leading-relaxed">
+                <li>Outlook 열기 → <strong class="text-slate-700">파일 → 계정 추가</strong></li>
+                <li>Gmail 주소 입력 후 로그인</li>
+                <li>캘린더 탭에서 Google 일정 확인</li>
+              </ol>
+            </div>
+            <div class="rounded-xl border border-slate-100 bg-slate-50 p-3">
+              <p class="mb-1.5 text-xs font-semibold text-slate-700">🪟 Windows 캘린더</p>
+              <ol class="list-decimal space-y-1 pl-4 text-xs text-slate-500 leading-relaxed">
+                <li>캘린더 앱 열기 → <strong class="text-slate-700">설정 → 계정 관리</strong></li>
+                <li><strong class="text-slate-700">계정 추가 → Google</strong></li>
+                <li>로그인 후 일정 자동 동기화</li>
+              </ol>
+            </div>
           </div>
         </div>
       </div>
@@ -1327,7 +1335,7 @@
       });
     }
     bindPwaToggle("btn-pwa-toggle", "pwa-guide", "pwa-toggle-icon");
-    bindPwaToggle("btn-pwa-toggle-2", "pwa-guide-2", "pwa-toggle-icon-2");
+    bindPwaToggle("btn-other-cal-toggle", "other-cal-guide", "other-cal-toggle-icon");
   </script>
 </body>
 </html>
